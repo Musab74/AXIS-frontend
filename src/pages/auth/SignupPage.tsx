@@ -662,7 +662,7 @@ export default function SignupPage() {
 
           <section className="flex flex-col justify-between rounded-xl border border-[#E0E4ED] bg-white px-10 py-4 lg:rounded-none lg:border-y-0 lg:border-r-0 lg:border-l-[#D0D5DD]">
             <p className="mb-8 text-[27px] leading-[1.35] tracking-[-0.02em] text-gray-800">
-              이미 계정이 있으신가요?
+              {t('signup.rightPanelPrompt')}
             </p>
             <div className="space-y-5">
               <button
@@ -670,14 +670,14 @@ export default function SignupPage() {
                 onClick={() => navigate('/login')}
                 className="h-14 w-full rounded-lg border-none bg-blue-900 text-[18px] font-semibold text-white"
               >
-                로그인
+                {t('signup.cta.login')}
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/forgot-password')}
                 className="h-14 w-full rounded-lg border border-[#9CA3AF] bg-white text-[18px] font-medium text-[#0A0E1A]"
               >
-                비밀번호 재설정
+                {t('signup.cta.forgot')}
               </button>
             </div>
           </section>

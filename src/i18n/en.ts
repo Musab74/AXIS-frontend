@@ -414,6 +414,9 @@ export const en = {
   'login.cta.signup': 'Sign up',
   'login.cta.forgot': 'Reset password',
   'signup.heroSub': 'Verify your identity, then create your AXIS account to access every exam service.',
+  'signup.rightPanelPrompt': 'Already have an account?',
+  'signup.cta.login': 'Sign in',
+  'signup.cta.forgot': 'Reset password',
   'forgot.heroTitle': 'Reset password',
   'forgot.heroSub': 'Verify your identity and set a new password to regain access to your account.',
 

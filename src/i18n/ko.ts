@@ -414,6 +414,9 @@ export const ko = {
   'login.cta.signup': '회원가입',
   'login.cta.forgot': '비밀번호 재설정',
   'signup.heroSub': '본인인증 후 AXIS 통합 계정을 만들고 모든 검정 서비스를 이용하세요.',
+  'signup.rightPanelPrompt': '이미 계정이 있으신가요?',
+  'signup.cta.login': '로그인',
+  'signup.cta.forgot': '비밀번호 재설정',
   'forgot.heroTitle': '비밀번호 재설정',
   'forgot.heroSub': '본인인증 후 새 비밀번호를 설정해 계정에 다시 접속할 수 있습니다.',
 
