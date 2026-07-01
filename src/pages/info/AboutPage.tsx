@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useI18n } from '@/i18n';
 import { SiteHeader } from '@/components/marketing/SiteHeader';
 import { SiteFooter } from '@/components/marketing/SiteFooter';
 import { PageHeroSolid } from '@/components/marketing/PageHeroSolid';
@@ -7,12 +8,6 @@ import { PageTabs } from '@/components/marketing/PageTabs';
 import ctaBg from '@/assets/cta-bg.jpg';
 
 type AboutTab = 'about' | 'grading' | 'operation';
-
-const ABOUT_LABELS: Record<AboutTab, string> = {
-  about: '소개',
-  grading: '등급·평가',
-  operation: '운영',
-};
 
 /* ─────────────────────────────────────────────────────────────
    Design tokens — HomePage와 동일 스케일
@@ -33,8 +28,14 @@ const TABLE_WRAP =
   '[&_td]:!text-[16px] lg:[&_td]:!text-[18px] [&_td]:!leading-[1.7]';
 
 export default function AboutPage() {
+  const { t } = useI18n();
   const [activeTab, setActiveTab] = useState<AboutTab>('about');
   const mainRef = useRef<HTMLDivElement>(null);
+  const ABOUT_LABELS: Record<AboutTab, string> = {
+    about: t('about.tab.about'),
+    grading: t('about.tab.grading'),
+    operation: t('about.tab.operation'),
+  };
 
   useEffect(() => {
     const obs = new IntersectionObserver(
@@ -53,8 +54,8 @@ export default function AboutPage() {
       <SiteHeader active="about" />
 
       <PageHeroSolid
-        title="AI로 증명하는 자격"
-        subtitle="AXIS · AI 실무역량검정 · 3단계 등급 · 실습형 평가"
+        title={t('about.hero.title')}
+        subtitle={t('about.hero.sub')}
       />
 
       <PageTabs

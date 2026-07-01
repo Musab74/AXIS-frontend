@@ -297,14 +297,14 @@ export default function SignupPage() {
     <div className="min-h-screen bg-white text-[var(--color-body)]">
       <SiteHeader active="login" />
       <PageHeroSolid
-        title="회원가입"
-        subtitle="본인인증 후 AXIS 통합 계정을 만들고 모든 검정 서비스를 이용하세요."
+        title={t('signup.title')}
+        subtitle={t('signup.heroSub')}
       />
       <PageTabs
         tabs={[
-          { key: 'login', label: '로그인' },
-          { key: 'signup', label: '회원가입' },
-          { key: 'forgot', label: '비밀번호 재설정' },
+          { key: 'login', label: t('login.tab.login') },
+          { key: 'signup', label: t('login.tab.signup') },
+          { key: 'forgot', label: t('login.tab.forgot') },
         ]}
         active="signup"
         onChange={(key) => {
@@ -317,7 +317,7 @@ export default function SignupPage() {
       <main className="mx-auto w-full max-w-[var(--spacing-content-w)] px-4 py-20 sm:px-6 lg:px-8">
         <div className="grid gap-8 rounded-xl border border-[#E0E4ED] p-6 lg:grid-cols-[1fr_1fr] lg:gap-12 lg:p-10">
           <section className="bg-white p-2 sm:p-4">
-            <h2 className="mb-8 text-[30px] font-semibold tracking-[-0.02em] text-gray-800">회원가입</h2>
+            <h2 className="mb-8 text-[30px] font-semibold tracking-[-0.02em] text-gray-800">{t('signup.title')}</h2>
 
         
             {/* ═══ STEP 1: NICE Verification ═══ */}

@@ -224,14 +224,14 @@ export default function ForgotPasswordPage() {
     <div className="min-h-screen bg-white text-[var(--color-body)]">
       <SiteHeader active="login" />
       <PageHeroSolid
-        title="비밀번호 재설정"
-        subtitle="본인인증 후 새 비밀번호를 설정해 계정에 다시 접속할 수 있습니다."
+        title={t('forgot.heroTitle')}
+        subtitle={t('forgot.heroSub')}
       />
       <PageTabs
         tabs={[
-          { key: 'login', label: '로그인' },
-          { key: 'signup', label: '회원가입' },
-          { key: 'forgot', label: '비밀번호 재설정' },
+          { key: 'login', label: t('login.tab.login') },
+          { key: 'signup', label: t('login.tab.signup') },
+          { key: 'forgot', label: t('login.tab.forgot') },
         ]}
         active="forgot"
         onChange={(key) => {
@@ -244,7 +244,7 @@ export default function ForgotPasswordPage() {
       <main className="mx-auto w-full max-w-[var(--spacing-content-w)] px-4 py-20 sm:px-6 lg:px-8">
         <div className="grid gap-8 rounded-xl border border-[#E0E4ED] p-6 lg:grid-cols-[1fr_1fr] lg:gap-12 lg:p-10">
           <section className="bg-white p-2 sm:p-4">
-            <h2 className="mb-8 text-[30px] font-semibold tracking-[-0.02em] text-gray-800">비밀번호 재설정</h2>
+            <h2 className="mb-8 text-[30px] font-semibold tracking-[-0.02em] text-gray-800">{t('forgot.heroTitle')}</h2>
 
        
             {/* ═══ STEP 1: NICE Verification ═══ */}

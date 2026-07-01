@@ -67,14 +67,14 @@ export default function LoginPage() {
     <div className="min-h-screen bg-white text-[var(--color-body)]">
       <SiteHeader active="login" />
       <PageHeroSolid
-        title="로그인"
-        subtitle="AXIS 통합 계정으로 접수, 결과 조회, 자격 검증 서비스를 이용하세요."
+        title={t('login.title')}
+        subtitle={t('login.heroSub')}
       />
       <PageTabs
         tabs={[
-          { key: 'login', label: '로그인' },
-          { key: 'signup', label: '회원가입' },
-          { key: 'forgot', label: '비밀번호 재설정' },
+          { key: 'login', label: t('login.tab.login') },
+          { key: 'signup', label: t('login.tab.signup') },
+          { key: 'forgot', label: t('login.tab.forgot') },
         ]}
         active="login"
         onChange={(key) => {
@@ -87,7 +87,7 @@ export default function LoginPage() {
       <main className="mx-auto w-full max-w-[var(--spacing-content-w)] px-4 py-20 sm:px-6 lg:px-8">
         <div className="grid gap-8 rounded-xl border border-[#E0E4ED] p-6 lg:grid-cols-[1fr_1fr] lg:gap-12 lg:p-10">
           <section className="bg-white p-2 sm:p-4">
-            <h2 className="mb-8 text-[30px] font-semibold tracking-[-0.02em] text-gray-800">로그인</h2>
+            <h2 className="mb-8 text-[30px] font-semibold tracking-[-0.02em] text-gray-800">{t('login.title')}</h2>
 
             <form onSubmit={handleLogin}>
               <div className="mb-4">
@@ -154,7 +154,7 @@ export default function LoginPage() {
                       }
                     }}
                   />
-                  아이디 저장
+                  {t('login.saveId')}
                 </label>
               </div>
 
@@ -177,10 +177,8 @@ export default function LoginPage() {
           </section>
 
           <section className="rounded-xl border border-[#E0E4ED] bg-white px-10 py-4 lg:rounded-none lg:border-y-0 lg:border-r-0 lg:border-l-[#D0D5DD] flex flex-col justify-between">
-            <p className="mb-8 text-[27px] leading-[1.35] tracking-[-0.02em] text-gray-800">
-              사이트를 이용하기 위해서는
-              <br />
-              로그인이 필요합니다.
+            <p className="mb-8 text-[27px] leading-[1.35] tracking-[-0.02em] text-gray-800 whitespace-pre-line">
+              {t('login.rightPanelPrompt')}
             </p>
             <div className="space-y-5">
               <button
@@ -188,14 +186,14 @@ export default function LoginPage() {
                 onClick={() => navigate('/signup')}
                 className="h-14 w-full rounded-lg border-none bg-blue-900 text-[18px] font-semisemibold text-white"
               >
-                회원가입
+                {t('login.cta.signup')}
               </button>
               <button
                 type="button"
                 onClick={() => navigate('/forgot-password')}
                 className="h-14 w-full rounded-lg border border-[#9CA3AF] bg-white text-[18px] font-medium text-[#0A0E1A]"
               >
-                비밀번호 재설정
+                {t('login.cta.forgot')}
               </button>
             </div>
           </section>

@@ -37,45 +37,41 @@ export function CertsPanel({ data }: { data: DashboardDto }) {
       <SectionTitle title={t('sec.certs.title')} sub="" />
 
        <InfoCallout tone="blue" className="">
-          <p>
-            자격증의 진위 여부는 자격검증 페이지에서 자격번호와 본인확인 정보를 통해 확인할 수 있습니다.
-          </p>
+          <p>{t('sec.certs.info.verify')}</p>
       </InfoCallout>
       <InfoCallout tone="blue" className="">
           <p>
-            실물 자격증이 필요하신 경우 문의하기로 신청해주세요.{' '}
+            {t('sec.certs.info.physical')}{' '}
             <button
               type="button"
               onClick={requestPhysicalCopy}
               className="text-blue-500 font-semibold underline underline-offset-2 bg-transparent border-none cursor-pointer hover:text-blue-700 p-0"
               style={{ fontFamily: 'inherit', fontSize: 'inherit' }}
             >
-              바로가기
+              {t('sec.certs.info.physicalCta')}
             </button>
           </p>
       </InfoCallout>
       <InfoCallout tone="red" className="mb-6">
-          <p>
-            AXIS 자격의 유효기간은 취득일로부터 3년입니다. 갱신은 상위 등급 취득 또는 무상 보수교육 이수로 가능합니다.
-          </p>
+          <p>{t('sec.certs.info.validity')}</p>
       </InfoCallout>
 
       <div className={TABLE_WRAP}>
         <table className="data-table" style={{ minWidth: 940 }}>
           <thead>
             <tr>
-              <th style={{ width: 200 }}>시험명</th>
-              <th style={{ width: 240 }}>자격번호</th>
-              <th style={{ width: 140 }}>취득일</th>
-              <th style={{ width: 250 }}>유효기간</th>
-              <th style={{ width: 200 }}>인증서발급</th>
+              <th style={{ width: 200 }}>{t('sec.certs.col.name')}</th>
+              <th style={{ width: 240 }}>{t('sec.certs.col.number')}</th>
+              <th style={{ width: 140 }}>{t('sec.certs.col.issued')}</th>
+              <th style={{ width: 250 }}>{t('sec.certs.col.validity')}</th>
+              <th style={{ width: 200 }}>{t('sec.certs.col.issue')}</th>
             </tr>
           </thead>
           <tbody>
             {data.certificates.length === 0 ? (
               <tr>
                 <td colSpan={5} className="text-center text-muted py-8">
-                  You don&apos;t have any certificates yet. Pass an exam to issue one.
+                  {t('sec.certs.empty')}
                 </td>
               </tr>
             ) : (
@@ -88,7 +84,7 @@ export function CertsPanel({ data }: { data: DashboardDto }) {
                   <td className="text-muted">{formatExamDate(c.issuedAt)}</td>
                   <td className="text-muted">
                     {formatExamDate(c.issuedAt)} ~ {formatExamDate(c.validUntil)}
-                    <span className="text-light ml-1">(3년)</span>
+                    <span className="text-light ml-1">{t('sec.certs.validity.years')}</span>
                   </td>
                   <td>
                     <div className="inline-flex items-center gap-1.5 flex-wrap">
