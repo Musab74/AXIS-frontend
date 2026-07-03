@@ -261,7 +261,12 @@ export function useProctorMonitorLive(opts: Options): {
   const detectTimerRef = useRef<number | null>(null);
   const serverTimerRef = useRef<number | null>(null);
   const aiTimerRef = useRef<number | null>(null);
-  const aiInFlightRef = useRef(false);
+  // Timestamp of the AI review currently in flight (null = idle). A timestamp
+  // instead of a boolean so a request that outlives both its axios timeout and
+  // the watchdog window can never wedge the guard shut — a stuck `true` here
+  // used to silently disable AI review (and phone detection with it) for the
+  // remainder of the exam.
+  const aiInFlightSinceRef = useRef<number | null>(null);
   const thumbTimerRef = useRef<number | null>(null);
   const thumbInFlightRef = useRef(false);
   const sustainRef = useRef<SustainState | null>(null);
@@ -683,14 +688,26 @@ export function useProctorMonitorLive(opts: Options): {
     }
   };
 
-  /* ───────────────────────────── AI proctor tick (every 10s) ───────────────────────────── */
+  /* ─────────────────── AI proctor tick (every aiReviewMs — 3s in the real exam) ─────────────────── */
+  // Overlap-guard watchdog — slightly above the 20s axios timeout on
+  // aiProctorApi.review so the timeout is what normally clears the guard;
+  // the watchdog only rescues pathological hangs (e.g. a demo review fn
+  // that never settles).
+  const AI_REVIEW_INFLIGHT_MAX_MS = 25_000;
+
   const tickAiReview = async () => {
     if (!sessionId && !demoAiReviewFnRef.current) return;
-    if (aiInFlightRef.current) return; // overlap guard
+    const inFlightSince = aiInFlightSinceRef.current;
+    if (inFlightSince !== null) {
+      const stuckFor = Date.now() - inFlightSince;
+      if (stuckFor < AI_REVIEW_INFLIGHT_MAX_MS) return; // overlap guard
+      console.warn('[proctor] ai-review watchdog: previous request stuck for', stuckFor, 'ms — proceeding');
+    }
     const b64 = await captureBase64Async();
     if (!b64) return;
-    aiInFlightRef.current = true;
-    const ts = Date.now();
+    const startedAt = Date.now();
+    aiInFlightSinceRef.current = startedAt;
+    const ts = startedAt;
     try {
       let res;
       if (sessionId) {
@@ -721,7 +738,11 @@ export function useProctorMonitorLive(opts: Options): {
     } catch (err) {
       console.warn('[proctor] ai-review failed', err);
     } finally {
-      aiInFlightRef.current = false;
+      // Only clear our own claim — if the watchdog let a newer request start
+      // while this one was stuck, the late completion must not unlock it.
+      if (aiInFlightSinceRef.current === startedAt) {
+        aiInFlightSinceRef.current = null;
+      }
     }
   };
 

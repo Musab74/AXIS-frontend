@@ -1486,6 +1486,9 @@ export const ko = {
   'fs.exit.body': '즉시 복귀하세요.',
   'fs.exit.warnCount': '(경고 {n}/{limit})',
   'fs.exit.resume': '전체화면 재개',
+  'fs.switch.title': '화면 전환 시도가 감지되었습니다',
+  'fs.switch.body': 'Win+Tab, Alt+Tab 등 창 전환 시도는 부정행위로 기록됩니다.',
+  'fs.switch.resume': '시험 계속하기',
 
   // Consent screen
   'consent.title': '시험 응시 동의',

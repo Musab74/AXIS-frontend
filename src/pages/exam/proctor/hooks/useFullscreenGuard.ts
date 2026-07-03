@@ -36,6 +36,24 @@ interface Options {
    * suppressed. Use only for QA flows triggered by the "테스트용 버튼".
    */
   testMode?: boolean;
+  /**
+   * Real-exam only — capture OS-level window-switch shortcuts.
+   *
+   * Win+Tab / Win / Alt+Tab never reach the page as blockable keydowns on
+   * their own: Windows handles them before the browser, so the only trace is
+   * a `blur` — and a quick Task-View peek that returns focus inside
+   * BLUR_STRIKE_DEBOUNCE_MS was never counted at all. With this flag:
+   *   • `navigator.keyboard.lock()` (Chrome/Edge, fullscreen-only) reroutes
+   *     Meta/Alt/Tab to the page so Win+Tab and Alt+Tab are BLOCKED outright
+   *     (Task View never opens) and we can preventDefault + strike.
+   *   • The keydown handler posts a TAB_SWITCH strike (1 point, backend
+   *     STRIKE_WEIGHT_BY_TYPE) for any Meta press or Alt+Tab, routed through
+   *     reportLeaveStrike so its cooldown absorbs the follow-up WINDOW_BLUR
+   *     on browsers without Keyboard Lock (Firefox/Safari) — otherwise a
+   *     single Win+Tab would burn 1 + 2 = 3 strikes and instantly terminate.
+   * Left OFF for the demo, which keeps the blur/visibility-only behaviour.
+   */
+  keyboardLock?: boolean;
 }
 
 /**
@@ -67,6 +85,7 @@ export function useFullscreenGuard({
   onTerminated,
   onLocalEvent,
   testMode = false,
+  keyboardLock = false,
 }: Options) {
   // preflight (ExamReadinessPage)에서 이미 풀스크린에 진입한 상태로 런너가
   // 마운트되는 정상 경로에서는 document.fullscreenElement가 이미 세팅돼 있다.
@@ -171,7 +190,7 @@ export function useFullscreenGuard({
   // same tick (macOS Cmd+Tab) or when fullscreenchange already sent a strike.
   const reportLeaveStrike = useCallback(
     async (
-      source: Extract<ProctorEventKind, 'WINDOW_BLUR' | 'TAB_HIDDEN' | 'BEFORE_UNLOAD'>,
+      source: Extract<ProctorEventKind, 'WINDOW_BLUR' | 'TAB_HIDDEN' | 'BEFORE_UNLOAD' | 'TAB_SWITCH'>,
       extra?: Record<string, unknown>,
     ) => {
       if (terminatedRef.current) return;
@@ -256,6 +275,24 @@ export function useFullscreenGuard({
     };
 
     const onKeyDown = (e: KeyboardEvent) => {
+      // Exam-only (keyboardLock): Win / Win+Tab / Alt+Tab are attempts to
+      // reach another window. With Keyboard Lock active the keydown reaches
+      // us instead of the OS, so preventDefault genuinely blocks Task View —
+      // and the attempt itself is a TAB_SWITCH strike (1 point). Without lock
+      // support the bare Meta keydown still fires before Windows takes over,
+      // so we can't block but we still count; reportLeaveStrike's cooldown
+      // then swallows the WINDOW_BLUR that follows, keeping it 1 strike total.
+      if (keyboardLock && !e.repeat) {
+        const metaCombo = e.key === 'Meta' || (e.metaKey && e.key === 'Tab');
+        const altTab = e.altKey && e.key === 'Tab';
+        if (metaCombo || altTab) {
+          e.preventDefault();
+          void reportLeaveStrike('TAB_SWITCH', {
+            key: altTab ? 'Alt+Tab' : e.key === 'Tab' ? 'Meta+Tab' : 'Meta',
+          });
+          return;
+        }
+      }
       // Block F11 (toggles native fullscreen out from under us). Esc is
       // browser-controlled — we can't reliably preventDefault on it. KEY_BLOCKED
       // is logged for audit only — it does NOT count toward the strike counter
@@ -287,7 +324,32 @@ export function useFullscreenGuard({
         pendingBlurTimerRef.current = null;
       }
     };
-  }, [state.active, isFullscreen, reportEvent, reportLeaveStrike, testMode]);
+  }, [state.active, isFullscreen, reportEvent, reportLeaveStrike, testMode, keyboardLock]);
+
+  // Keyboard Lock — Chrome/Edge desktop only, and only effective while the
+  // document is fullscreen (the request persists across fullscreen re-entry,
+  // so one lock() call covers Resume-after-exit too). Reroutes the listed
+  // system keys to the page: Win+Tab / Alt+Tab stop opening Task View and
+  // instead hit the onKeyDown handler above. Escape is deliberately NOT
+  // locked — locking it changes Chrome's exit UX to press-and-hold and we
+  // want the existing FULLSCREEN_EXIT strike path for Esc to stay as-is.
+  // On browsers without the API this is a silent no-op and detection falls
+  // back to Meta-keydown + blur.
+  useEffect(() => {
+    if (!state.active || !keyboardLock || testMode) return;
+    const kb = (navigator as { keyboard?: { lock?: (codes?: string[]) => Promise<void>; unlock?: () => void } }).keyboard;
+    if (!kb?.lock) return;
+    kb.lock(['MetaLeft', 'MetaRight', 'AltLeft', 'AltRight', 'Tab', 'F11']).catch(() => {
+      /* unsupported / denied — fall back to detection-only */
+    });
+    return () => {
+      try {
+        kb.unlock?.();
+      } catch {
+        /* noop */
+      }
+    };
+  }, [state.active, keyboardLock, testMode]);
 
   const resumeFullscreen = useCallback(async () => {
     onResumeRequested?.();

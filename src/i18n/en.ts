@@ -1454,6 +1454,9 @@ export const en = {
   'fs.exit.body': 'Return to fullscreen immediately.',
   'fs.exit.warnCount': '(warning {n}/{limit})',
   'fs.exit.resume': 'Resume fullscreen',
+  'fs.switch.title': 'Window-switch attempt detected',
+  'fs.switch.body': 'Switching windows (Win+Tab, Alt+Tab) is recorded as a violation.',
+  'fs.switch.resume': 'Continue exam',
 
   'consent.title': 'Exam consent',
   'consent.desc':

@@ -477,6 +477,7 @@ export type ProctorEventKind =
   | 'EXTERNAL_DISPLAY'
   | 'POSSIBLE_MIRROR'
   | 'FULLSCREEN_EXIT'
+  | 'TAB_SWITCH'
   | 'TAB_HIDDEN'
   | 'WINDOW_BLUR'
   | 'BEFORE_UNLOAD'
@@ -633,12 +634,19 @@ export const aiProctorApi = {
     imageBase64: string,
     screenImageBase64?: string | null,
   ) =>
-    api.post<AiReviewResponse>('/cbt/proctor/ai-review', {
-      sessionId,
-      ts,
-      imageBase64,
-      ...(screenImageBase64 ? { screenImageBase64 } : {}),
-    }),
+    api.post<AiReviewResponse>(
+      '/cbt/proctor/ai-review',
+      {
+        sessionId,
+        ts,
+        imageBase64,
+        ...(screenImageBase64 ? { screenImageBase64 } : {}),
+      },
+      // Gemini→Claude 체인은 정상적으로 ~10초까지 걸릴 수 있지만, 무한정
+      // 매달리면 훅의 in-flight 가드가 풀리지 않아 남은 시험 내내 AI 감독이
+      // 조용히 멈춘다. 20초에서 끊고 다음 tick 이 새 프레임으로 재시도.
+      { timeout: 20_000 },
+    ),
   /** Demo-only: Gemini tier-1 screening, no session needed. */
   demoReview: (ts: number, imageBase64: string) =>
     api.post<AiReviewResponse>('/cbt/proctor/demo-ai-review', {

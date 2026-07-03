@@ -456,6 +456,9 @@ export default function ExamRunnerPage() {
     sessionId,
     onTerminated: handleTerminated,
     testMode,
+    // 실전 시험 전용 — Win+Tab/Alt+Tab 을 Keyboard Lock 으로 차단하고
+    // 시도 자체를 TAB_SWITCH strike 로 카운트한다. 데모는 기존 동작 유지.
+    keyboardLock: true,
   });
 
   // Screen share is requested earlier (from the consent button) so the
@@ -2484,6 +2487,11 @@ function FullscreenExitModal({
 }) {
   const { t } = useI18n();
   if (!open) return null;
+  // Keyboard-Lock 이 Win+Tab/Alt+Tab 을 차단한 경우 풀스크린은 유지된 채로
+  // TAB_SWITCH strike 만 찍힌다. 그때 "전체화면을 벗어났습니다"는 오해를
+  // 부르므로, 열리는 시점에 아직 풀스크린이면 화면-전환-시도 문구로 바꾼다.
+  const stillFullscreen = typeof document !== 'undefined' && !!document.fullscreenElement;
+  const k = stillFullscreen ? 'fs.switch' : 'fs.exit';
   return (
     <div
       className="fixed inset-0 z-[100] bg-black/40 backdrop-blur-sm flex items-center justify-center p-6"
@@ -2495,11 +2503,11 @@ function FullscreenExitModal({
         <div className="bg-status-danger px-6 py-4 flex items-center gap-3">
           <AlertTriangle className="w-6 h-6 text-white" />
           <h2 id="fs-exit-title" className="text-[19px] sm:text-[22px] font-semibold tracking-tight text-white">
-            {t('fs.exit.title')}
+            {t(`${k}.title`)}
           </h2>
         </div>
         <div className="p-6 text-center">
-          <p className={`${EXAM.text.body} ${EXAM.color.body} mb-2 leading-relaxed`}>{t('fs.exit.body')}</p>
+          <p className={`${EXAM.text.body} ${EXAM.color.body} mb-2 leading-relaxed`}>{t(`${k}.body`)}</p>
           <p className={`${EXAM.text.value} ${EXAM.color.danger} font-bold mb-6 tabular-nums`}>
             {t('fs.exit.warnCount', { n: warningCount, limit: threshold })}
           </p>
@@ -2508,7 +2516,7 @@ function FullscreenExitModal({
             autoFocus
             className={`w-full h-12 rounded-md bg-status-danger hover:bg-[#B91C1C] text-white transition-colors ${EXAM.text.button}`}
           >
-            {t('fs.exit.resume')}
+            {t(`${k}.resume`)}
           </button>
         </div>
       </div>
