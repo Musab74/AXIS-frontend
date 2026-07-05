@@ -33,7 +33,7 @@ const STATUS_FILTERS: { key: 'all' | PublicRoundPublicationState; color: string 
   { key: 'all', color: 'var(--color-ink)' },
   { key: 'announced', color: 'var(--color-status-success)' },
   { key: 'grading', color: 'var(--color-status-grading)' },
-  { key: 'upcoming', color: '#64748B' },
+  { key: 'upcoming', color: 'var(--color-blue)' },
 ];
 
 const DATE_INPUT =
@@ -175,7 +175,7 @@ function PublicationBadge({ state }: { state: 'announced' | 'grading' | 'upcomin
       ? { background: 'rgba(5, 150, 105, 0.1)', color: 'var(--color-status-success)' }
       : state === 'grading'
         ? { background: 'rgba(217, 119, 6, 0.1)', color: 'var(--color-status-grading)' }
-        : { background: '#F1F5F9', color: 'var(--color-muted)' };
+        : { background: 'rgba(0, 102, 255, 0.08)', color: 'var(--color-blue)' };
   return (
     <span
       className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12.5px] font-semibold whitespace-nowrap"
@@ -714,7 +714,11 @@ export default function ResultsPage() {
                               >
                                 {s.passCount}
                               </span>
-                            ) : null}
+                            ) : (
+                              <span className="inline-block min-w-[2.5rem] text-center text-faint" aria-hidden>
+                                —
+                              </span>
+                            )}
                           </td>
                           <td className="text-right">
                             {graded ? (
@@ -727,7 +731,11 @@ export default function ResultsPage() {
                               >
                                 {s.failCount}
                               </span>
-                            ) : null}
+                            ) : (
+                              <span className="inline-block min-w-[2.5rem] text-center text-faint" aria-hidden>
+                                —
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );

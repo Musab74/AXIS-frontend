@@ -957,34 +957,46 @@ export function ProctorLiveBanner({ state }: { state: ProctorLiveState }) {
   );
 }
 
-type PipCorner = 'tl' | 'tr' | 'bl' | 'br';
-const PIP_CORNER_STORAGE_KEY = 'axis:proctor-pip-corner';
-const PIP_W = 128; // w-32
-const PIP_H = 96; // h-24
+const PIP_POS_STORAGE_KEY = 'axis:proctor-pip-pos';
 const PIP_MARGIN = 12;
+// "A bit bigger" than the old 128×96 — 192×144 (4:3) on desktop, scaling down
+// to at most 30% of the viewport width on narrow windows (min 128 so the face
+// stays recognizable).
+const PIP_MAX_W = 192;
+const PIP_MIN_W = 128;
 
-function readPipCorner(): PipCorner {
-  if (typeof window === 'undefined') return 'br';
+function pipWidth(viewportW: number): number {
+  return Math.max(PIP_MIN_W, Math.min(PIP_MAX_W, Math.round(viewportW * 0.3)));
+}
+
+/**
+ * Free position persisted as FRACTIONS of the draggable range (0 = left/top
+ * edge, 1 = right/bottom edge) — pixel positions don't survive viewport
+ * changes, fractions keep the tile in the same relative spot on any screen.
+ */
+interface PipPosFraction {
+  fx: number;
+  fy: number;
+}
+
+function readPipPos(): PipPosFraction {
+  if (typeof window === 'undefined') return { fx: 1, fy: 1 };
   try {
-    const v = window.sessionStorage.getItem(PIP_CORNER_STORAGE_KEY);
-    if (v === 'tl' || v === 'tr' || v === 'bl' || v === 'br') return v;
+    const raw = window.sessionStorage.getItem(PIP_POS_STORAGE_KEY);
+    if (raw) {
+      const v = JSON.parse(raw) as Partial<PipPosFraction>;
+      if (typeof v.fx === 'number' && typeof v.fy === 'number') {
+        return {
+          fx: Math.max(0, Math.min(1, v.fx)),
+          fy: Math.max(0, Math.min(1, v.fy)),
+        };
+      }
+    }
   } catch {
     /* ignore */
   }
-  return 'br';
-}
-
-function cornerToStyle(corner: PipCorner): React.CSSProperties {
-  switch (corner) {
-    case 'tl':
-      return { left: PIP_MARGIN, top: PIP_MARGIN };
-    case 'tr':
-      return { right: PIP_MARGIN, top: PIP_MARGIN };
-    case 'bl':
-      return { left: PIP_MARGIN, bottom: PIP_MARGIN };
-    case 'br':
-      return { right: PIP_MARGIN, bottom: PIP_MARGIN };
-  }
+  // Default: bottom-right, same as the old corner-snap default.
+  return { fx: 1, fy: 1 };
 }
 
 export function ProctorLivePipPreview({
@@ -992,7 +1004,7 @@ export function ProctorLivePipPreview({
 }: {
   videoRef: React.RefObject<HTMLVideoElement | null>;
 }) {
-  const [corner, setCorner] = useState<PipCorner>(readPipCorner);
+  const [pos, setPos] = useState<PipPosFraction>(readPipPos);
   const dragRef = useRef<{
     startX: number;
     startY: number;
@@ -1003,6 +1015,23 @@ export function ProctorLivePipPreview({
   const [livePos, setLivePos] = useState<{ left: number; top: number } | null>(null);
   // 접기/펴기 — 접으면 영상 숨기고 "proctor · live" 라벨만 있는 작은 박스로.
   const [collapsed, setCollapsed] = useState(false);
+  // Viewport tracked in state so the tile re-clamps and re-scales on resize
+  // (fullscreen enter/exit changes the viewport mid-exam).
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== 'undefined' ? window.innerWidth : 1280,
+    h: typeof window !== 'undefined' ? window.innerHeight : 800,
+  }));
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  const pipW = pipWidth(viewport.w);
+  const pipH = Math.round(pipW * 0.75);
+  // Draggable range — the span the fractional position maps onto.
+  const rangeX = Math.max(0, viewport.w - pipW - PIP_MARGIN * 2);
+  const rangeY = Math.max(0, viewport.h - pipH - PIP_MARGIN * 2);
 
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     // Don't start a drag when interacting with controls inside the PiP.
@@ -1028,11 +1057,11 @@ export function ProctorLivePipPreview({
     const dy = e.clientY - drag.startY;
     const left = Math.max(
       PIP_MARGIN,
-      Math.min(window.innerWidth - PIP_W - PIP_MARGIN, drag.originLeft + dx),
+      Math.min(window.innerWidth - pipW - PIP_MARGIN, drag.originLeft + dx),
     );
     const top = Math.max(
       PIP_MARGIN,
-      Math.min(window.innerHeight - PIP_H - PIP_MARGIN, drag.originTop + dy),
+      Math.min(window.innerHeight - pipH - PIP_MARGIN, drag.originTop + dy),
     );
     setLivePos({ left, top });
   };
@@ -1045,15 +1074,16 @@ export function ProctorLivePipPreview({
     } catch {
       /* ignore */
     }
-    const pos = livePos ?? { left: drag.originLeft, top: drag.originTop };
-    const cx = pos.left + PIP_W / 2;
-    const cy = pos.top + PIP_H / 2;
-    const right = cx > window.innerWidth / 2;
-    const bottom = cy > window.innerHeight / 2;
-    const next: PipCorner = bottom ? (right ? 'br' : 'bl') : right ? 'tr' : 'tl';
-    setCorner(next);
+    // Persist the EXACT drop point (no corner snapping) as range fractions so
+    // the tile lands in the same relative spot after resize / fullscreen.
+    const dropped = livePos ?? { left: drag.originLeft, top: drag.originTop };
+    const next: PipPosFraction = {
+      fx: rangeX > 0 ? Math.max(0, Math.min(1, (dropped.left - PIP_MARGIN) / rangeX)) : 1,
+      fy: rangeY > 0 ? Math.max(0, Math.min(1, (dropped.top - PIP_MARGIN) / rangeY)) : 1,
+    };
+    setPos(next);
     try {
-      window.sessionStorage.setItem(PIP_CORNER_STORAGE_KEY, next);
+      window.sessionStorage.setItem(PIP_POS_STORAGE_KEY, JSON.stringify(next));
     } catch {
       /* ignore */
     }
@@ -1063,7 +1093,10 @@ export function ProctorLivePipPreview({
 
   const style: React.CSSProperties = livePos
     ? { left: livePos.left, top: livePos.top }
-    : cornerToStyle(corner);
+    : {
+        left: PIP_MARGIN + pos.fx * rangeX,
+        top: PIP_MARGIN + pos.fy * rangeY,
+      };
 
   return (
     <div
@@ -1072,12 +1105,12 @@ export function ProctorLivePipPreview({
       onPointerUp={endDrag}
       onPointerCancel={endDrag}
       className={`fixed bg-black border border-gray-700 rounded shadow-lg overflow-hidden z-50 select-none touch-none ${
-        collapsed ? 'w-auto h-9' : 'w-32 h-24'
+        collapsed ? 'w-auto h-9' : ''
       } ${livePos ? 'cursor-grabbing' : 'cursor-grab'}`}
-      style={style}
+      style={collapsed ? style : { ...style, width: pipW, height: pipH }}
       role="region"
-      aria-label="Proctor preview (drag to move to any corner)"
-      title="Drag to any corner"
+      aria-label="Proctor preview (drag to place it anywhere)"
+      title="Drag to place anywhere"
     >
       {/* 접기/펴기 토글 — 우상단. 버튼이므로 onPointerDown 의 closest('button') 가드로
           드래그를 시작시키지 않는다. */}
