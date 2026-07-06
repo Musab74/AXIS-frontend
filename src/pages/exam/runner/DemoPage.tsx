@@ -1147,6 +1147,7 @@ export default function DemoPage() {
             }}
             onContinue={() => setPostStage('verify')}
             onBack={() => setPostStage('report')}
+            onHome={() => navigate('/')}
           />
         </>
       );
@@ -1163,6 +1164,7 @@ export default function DemoPage() {
             onApply={() => navigate('/apply')}
             onMyPage={() => navigate('/mypage')}
             onBack={() => setPostStage('certificate')}
+            onHome={() => navigate('/')}
           />
         </>
       );
@@ -2953,6 +2955,7 @@ function DemoCertificateView({
   onIssue,
   onContinue,
   onBack,
+  onHome,
 }: {
   result: GradeResult;
   color: string;
@@ -2963,6 +2966,7 @@ function DemoCertificateView({
   onIssue: () => void;
   onContinue: () => void;
   onBack: () => void;
+  onHome: () => void;
 }) {
   // 화면 진입 시 자동으로 1회 발급 시도 (이미 발급되어 있으면 재호출 안 함).
   const triedRef = useRef(false);
@@ -3025,6 +3029,13 @@ function DemoCertificateView({
             </span>
           </div>
           <div className="flex items-center gap-2.5">
+            <button
+              onClick={onHome}
+              className={`inline-flex items-center gap-1.5 h-[clamp(40px,2.8vw,56px)] px-[clamp(16px,1.4vw,32px)] rounded-md border border-[var(--exam-border,#E5E7EB)] bg-[var(--exam-surface,#fff)] ${EXAM.color.ink} hover:bg-[var(--exam-surface-2,#F1F5F9)] transition-colors ${EXAM.text.button}`}
+            >
+              <Home className="w-4 h-4" />
+              {lang === 'ko' ? '홈으로' : 'Home'}
+            </button>
             <button
               onClick={onBack}
               className={`h-[clamp(40px,2.8vw,56px)] px-[clamp(16px,1.4vw,32px)] rounded-md border border-[var(--exam-border,#E5E7EB)] bg-[var(--exam-surface,#fff)] ${EXAM.color.ink} hover:bg-[var(--exam-surface-2,#F1F5F9)] transition-colors ${EXAM.text.button}`}
@@ -3141,6 +3152,7 @@ function DemoVerifyView({
   onApply,
   onMyPage,
   onBack,
+  onHome,
 }: {
   result: GradeResult;
   cert: { certNumber: string; holderName: string; issuedAt: string; validUntil: string } | null;
@@ -3149,6 +3161,7 @@ function DemoVerifyView({
   onApply: () => void;
   onMyPage: () => void;
   onBack: () => void;
+  onHome: () => void;
 }) {
   const certLabel = `${CERT_LABEL[result.certType]} · ${result.level}`;
   const verifyUrl =
@@ -3248,6 +3261,13 @@ function DemoVerifyView({
               className={`flex-1 h-[clamp(48px,3.6vw,76px)] rounded-md border border-[var(--exam-border,#E5E7EB)] bg-[var(--exam-surface,#fff)] ${EXAM.color.ink} hover:bg-[var(--exam-surface-2,#F1F5F9)] transition-colors ${EXAM.text.buttonLg}`}
             >
               {lang === 'ko' ? '마이페이지로' : 'Go to My Page'}
+            </button>
+            <button
+              onClick={onHome}
+              className={`flex-1 inline-flex items-center justify-center gap-1.5 h-[clamp(48px,3.6vw,76px)] rounded-md border border-[var(--exam-border,#E5E7EB)] bg-[var(--exam-surface,#fff)] ${EXAM.color.ink} hover:bg-[var(--exam-surface-2,#F1F5F9)] transition-colors ${EXAM.text.buttonLg}`}
+            >
+              <Home className="w-4 h-4" />
+              {lang === 'ko' ? '홈으로' : 'Home'}
             </button>
           </div>
 
