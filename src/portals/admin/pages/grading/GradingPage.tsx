@@ -38,6 +38,7 @@ const TABS: { id: GradingQueueTab; labelKey: string; warn?: boolean }[] = [
   { id: 'reviewing', labelKey: 'grade.tab.reviewing' },
   { id: 'final', labelKey: 'grade.tab.final' },
   { id: 'overdue', labelKey: 'grade.tab.overdue', warn: true },
+  { id: 'terminated', labelKey: 'grade.tab.terminated', warn: true },
 ];
 
 function pracBadge(s: PracticalState, t: (k: string) => string) {
@@ -76,6 +77,8 @@ function tabCount(c: GradingCounts | null, id: GradingQueueTab): number {
       return c.final;
     case 'overdue':
       return c.overdue;
+    case 'terminated':
+      return c.terminated ?? 0;
   }
 }
 
@@ -100,6 +103,12 @@ export function GradingScreen() {
   }, []);
 
   const openAction = (r: GradingRow) => {
+    if (r.terminated) {
+      // Unfinished (force-terminated) exam — open the scoring screen directly;
+      // grading runs only via its "Grade the exam" button.
+      setDetailSession({ id: r.sessionId, readOnly: false });
+      return;
+    }
     if (r.practicalState === 'ai_graded' || r.practicalState === 'auto') {
       setAssignFor(r);
     } else {
@@ -396,7 +405,11 @@ export function GradingScreen() {
                   </Td>
                   <Td>{pracBadge(r.practicalState, t)}</Td>
                   <Td>
-                    {r.result === 'pass' ? (
+                    {r.terminated ? (
+                      <span className="inline-flex items-center text-[11px] text-[var(--red)] bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5 font-medium">
+                        {t('grade.badge.terminated')}
+                      </span>
+                    ) : r.result === 'pass' ? (
                       <span className="text-[var(--green)]">{t('result.pass')}</span>
                     ) : r.result === 'fail' ? (
                       <span className="text-[var(--gray-600)]">{t('result.fail')}</span>
@@ -425,7 +438,9 @@ export function GradingScreen() {
                   </Td>
                   <Td align="right">
                     <Button variant="blue" size="sm" onClick={() => openAction(r)}>
-                      {r.practicalState === 'ai_graded' || r.practicalState === 'auto'
+                      {r.terminated
+                        ? t('grade.action.grade')
+                        : r.practicalState === 'ai_graded' || r.practicalState === 'auto'
                         ? t('grade.action.assign')
                         : r.practicalState === 'final'
                         ? t('common.detail')

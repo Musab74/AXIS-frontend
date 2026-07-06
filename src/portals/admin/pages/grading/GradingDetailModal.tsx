@@ -174,6 +174,9 @@ export default function GradingDetailModal({
   };
 
   const isAxisC = detail?.certType === 'AXIS_C';
+  // Force-terminated (unfinished) exam: answers are saved; MCQ is auto-graded;
+  // AI grading runs ONLY via the top "시험 채점" button. Never finalizable.
+  const isTerminated = detail?.status === 'TERMINATED';
 
   // Finalize is blocked for an EXPERT who is NOT the assigned expert,
   // unless the session has no assignment (open to any qualified expert).
@@ -209,10 +212,25 @@ export default function GradingDetailModal({
                 <Users className="w-3 h-3" /> 채점위원 배정됨
               </span>
             )}
+            {isTerminated && (
+              <span className="inline-flex items-center gap-1 text-[12px] text-[var(--red)] bg-rose-50 border border-rose-200 rounded px-1.5 py-0.5 font-medium">
+                <ShieldAlert className="w-3 h-3" /> 강제종료 (미완료)
+              </span>
+            )}
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-700" aria-label="close">
-            <X className="w-5 h-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            {/* Grade the exam — the ONLY trigger for AI grading (essays stay
+                saved-but-unscored until this is clicked). MCQ is auto-graded. */}
+            {!readOnly && (
+              <Button onClick={runPrescore} disabled={prescoring || !detail}>
+                {prescoring ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bot className="w-4 h-4" />}
+                시험 채점
+              </Button>
+            )}
+            <button onClick={onClose} className="text-slate-400 hover:text-slate-700" aria-label="close">
+              <X className="w-5 h-5" />
+            </button>
+          </div>
         </div>
 
         <div className="px-6 py-5 space-y-4">
@@ -231,16 +249,30 @@ export default function GradingDetailModal({
             </div>
           )}
 
+          {isTerminated && detail && (
+            <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md p-2.5">
+              <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
+              <div>
+                <div className="font-medium">강제종료된 시험 (미완료)</div>
+                <div className="mt-0.5">
+                  응시자는 이 시험을 이어서 볼 수 없습니다. 답안은 저장되어 있으며, 객관식은 자동
+                  채점되었습니다. AI 채점은 상단 [시험 채점] 버튼을 눌렀을 때만 실행되고, 점수는
+                  저장만 될 뿐 확정·합격 판정은 불가합니다.
+                </div>
+                {detail.failReason && (
+                  <div className="mt-1 text-[12px] text-rose-600">사유: {detail.failReason}</div>
+                )}
+              </div>
+            </div>
+          )}
+
           {!detail ? (
             <div className="py-12 flex justify-center text-slate-400"><Loader2 className="w-6 h-6 animate-spin" /></div>
           ) : (
             <>
               <div className="flex items-center justify-between gap-3 text-sm bg-slate-50 rounded-lg px-4 py-2.5">
-                <span className="text-slate-600">필기 점수: <b className="text-slate-900">{detail.writtenScore ?? '—'}%</b></span>
-                <Button variant="secondary" size="sm" onClick={runPrescore} disabled={prescoring || readOnly}>
-                  {prescoring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Bot className="w-3.5 h-3.5" />}
-                  AI 1차 채점 {readOnly ? '' : '재실행'}
-                </Button>
+                <span className="text-slate-600">필기 점수 (자동채점): <b className="text-slate-900">{detail.writtenScore ?? '—'}%</b></span>
+                <span className="text-[12px] text-slate-400">AI 채점은 상단 [시험 채점] 버튼으로 실행됩니다</span>
               </div>
 
               {detail.tasks.map((t, i) => {
@@ -357,14 +389,14 @@ export default function GradingDetailModal({
                         type="number"
                         min={0}
                         max={t.maxPoints}
-                        disabled={readOnly}
+                        disabled={readOnly || isTerminated}
                         value={scores[t.taskId] ?? ''}
                         onChange={(e) => setScores((s) => ({ ...s, [t.taskId]: e.target.value }))}
                         className="w-28 border border-slate-300 rounded-lg px-2.5 py-1.5 text-sm disabled:bg-slate-100"
                       />
                       <label className="block text-[12px] font-semibold text-slate-600 mt-3 mb-1">검수 메모</label>
                       <textarea
-                        disabled={readOnly}
+                        disabled={readOnly || isTerminated}
                         value={notes[t.taskId] ?? ''}
                         onChange={(e) => setNotes((n) => ({ ...n, [t.taskId]: e.target.value }))}
                         rows={2}
@@ -394,7 +426,7 @@ export default function GradingDetailModal({
             >
               닫기
             </button>
-            {!readOnly && (
+            {!readOnly && !isTerminated && (
               <>
                 {/* Save scores — available to any expert/admin; doesn't finalize */}
                 <Button

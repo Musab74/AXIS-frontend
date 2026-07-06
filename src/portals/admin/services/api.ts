@@ -435,7 +435,7 @@ export interface SubjectStats {
   aiVsExpert: { aiScore: number; expertScore: number }[];
 }
 
-export type GradingQueueTab = 'all' | 'auto_done' | 'ai_graded' | 'reviewing' | 'final' | 'overdue';
+export type GradingQueueTab = 'all' | 'auto_done' | 'ai_graded' | 'reviewing' | 'final' | 'overdue' | 'terminated';
 export type PracticalState = 'auto' | 'ai_graded' | 'expert_reviewing' | 'final' | 'expert_disputed';
 
 export interface GradingRow {
@@ -453,6 +453,8 @@ export interface GradingRow {
   assignedExpertId: string | null;
   assignedExpert: string | null;
   mandatoryReview: boolean;
+  /** Force-terminated (unfinished) exam — answers saved, graded only on demand. */
+  terminated?: boolean;
 }
 
 export interface GradingTaskDetail {
@@ -494,6 +496,7 @@ export interface GradingDetail {
   practicalScore: number | null;
   totalScore: number | null;
   passed: boolean | null;
+  failReason?: string | null;
   mandatoryReview: boolean;
   assignedExpertId: string | null;
   proctorWarnings?: number;
@@ -577,6 +580,7 @@ export interface GradingCounts {
   reviewing: number;
   final: number;
   overdue: number;
+  terminated?: number;
 }
 
 export type LiveStatus = 'normal' | 'warning' | 'danger' | 'disconnected' | 'submitted' | 'terminated';
