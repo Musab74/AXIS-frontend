@@ -53,15 +53,18 @@ interface ExamStructure {
   practicalType: 'tasks' | 'deliverable_essay' | 'none';
 }
 
-// Exam structure by level (matching backend exam-spec.ts).
+// Exam structure by level (matching backend exam-spec.ts, 시험 표준 v2.0).
+// New L3 sessions run the v2.0 shape: 객관식 50분 + 실습 20분 = 70분. In-flight
+// v1.1 sessions keep their server-issued timing (the runner reads
+// session.timing / hardDeadline, never this table).
 const EXAM_STRUCTURE: Record<string, ExamStructure> = {
   L3: {
-    totalMinutes: 60,
-    writtenMinutes: 60,
+    totalMinutes: 70,
+    writtenMinutes: 50,
     writtenQuestions: 40,
-    practicalMinutes: 0,
-    practicalTasks: 0,
-    practicalType: 'none',
+    practicalMinutes: 20,
+    practicalTasks: 4,
+    practicalType: 'tasks',
   },
   L2: {
     totalMinutes: 90,

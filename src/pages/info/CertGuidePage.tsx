@@ -74,11 +74,11 @@ const CERT_DATA: Record<'ko' | 'en', Record<CertTab, CertContent>> = {
     overview:
       'AXIS(AI eXecution & Integrity Standard)는 AI로 실제 업무를 수행하고(eXecution), 그 결과를 검증·통제하는(Integrity) 역량을 평가하는 표준 자격입니다.\n프롬프트 엔지니어링, 데이터 분석, AI 도구 활용 등 현업에서 요구되는 핵심 역량을 검증합니다.',
     levels: [
-      { level: 'L3 (Starter)', target: 'AI 입문자·대학생', questions: '객관식 40 + 실습 4', time: '60분', passing: '70점 이상' },
+      { level: 'L3 (Starter)', target: 'AI 입문자·대학생', questions: '객관식 40 + 실습 4', time: '70분', passing: '70점 이상' },
       { level: 'L2 (Practitioner)', target: '실무 2년 이상', questions: '사례형 객관식 30 + 실습 3과제', time: '90분', passing: '70점 이상' },
       { level: 'L1 (Leader)', target: '리더·아키텍트', questions: '객관식 25 + 실행계획서 + 서술형 2', time: '120분', passing: '70점 이상' },
     ],
-    levelsFootnote: '※ 합격은 총점 70점 이상, 실습형 최소기준 미달 시 별도 검토.',
+    levelsFootnote: '※ 합격은 총점 70점 이상이며 영역별 최저기준(객관식·실습형)을 모두 충족해야 합니다. 경계 점수는 전문가 검수를 거쳐 확정됩니다.',
     scope: [
       { title: 'AI 현실 이해와 한계 판단', details: ['할루시네이션, 최신성 한계, 검증 필요성', '5문항'] },
       { title: '업무문제 정의와 AI 적용·도구 선택', details: ['AI 적용 여부, 입력자료, 도구 선택', '6문항'] },
@@ -107,7 +107,7 @@ const CERT_DATA: Record<'ko' | 'en', Record<CertTab, CertContent>> = {
     overview:
       'AXIS-C는 코딩 전문가가 아니어도 AI 도구로 업무를 자동화하고, AI가 생성한 코드를 이해·검증·관리하는 역량을 검증하는 자격입니다.\n복잡한 프로그래밍이 아니라, 반복 업무를 자동화 과제로 구조화하고 AI 코드의 오류와 위험을 판단하는 실무 능력을 평가합니다.',
     levels: [
-      { level: 'L3 (Starter)', target: '자동화에 입문하는 현업 실무자', questions: '객관식 40 + 실습 4', time: '60분', passing: '70점 이상' },
+      { level: 'L3 (Starter)', target: '자동화에 입문하는 현업 실무자', questions: '객관식 40 + 실습 4', time: '70분', passing: '70점 이상' },
       { level: 'L2 (Practitioner)', target: '업무 자동화를 구현하는 실무자', questions: '사례형 객관식 30 + 실습 3과제', time: '120분', passing: '70점 이상' },
       { level: 'L1 (Leader)', target: '자동화 운영·거버넌스 담당자', questions: '객관식 25 + 실행계획서 + 서술형 2', time: '120분', passing: '70점 이상' },
     ],
@@ -140,7 +140,7 @@ const CERT_DATA: Record<'ko' | 'en', Record<CertTab, CertContent>> = {
     overview:
       'AXIS-H는 의료기관 종사자가 원무·CS·감염안전·홍보 같은 비임상 업무에 AI를 활용하는 역량을 검증하는 자격입니다.\n진단·치료·처방·검사 판단 같은 임상 의료행위는 평가하지 않으며, 환자정보 보호와 의료행위 오인 차단을 핵심으로 봅니다.',
     levels: [
-      { level: 'L3 (Starter)', target: '비임상 실무 입문자', questions: '객관식 40 + 실습 4', time: '60분', passing: '70점 이상' },
+      { level: 'L3 (Starter)', target: '비임상 실무 입문자', questions: '객관식 40 + 실습 4', time: '70분', passing: '70점 이상' },
       { level: 'L2 (Practitioner)', target: '비임상 실무자', questions: '사례형 객관식 30 + 실습 3과제', time: '90분', passing: '70점 이상' },
       { level: 'L1 (Leader)', target: '의료기관 AI 도입 리더', questions: '객관식 25 + 실행계획서 + 서술형 2', time: '120분', passing: '70점 이상' },
     ],
@@ -176,7 +176,7 @@ const CERT_DATA: Record<'ko' | 'en', Record<CertTab, CertContent>> = {
     overview:
       'AXIS (AI eXecution & Integrity Standard) is a standard certification that assesses your ability to execute real work with AI (eXecution) and to verify and control the results (Integrity).\nIt validates the core competencies today’s workplace demands, including prompt engineering, data analysis, and effective use of AI tools.',
     levels: [
-      { level: 'L3 (Starter)', target: 'AI beginners & university students', questions: '40 MCQ + 4 practical', time: '60 min', passing: '70 or above' },
+      { level: 'L3 (Starter)', target: 'AI beginners & university students', questions: '40 MCQ + 4 practical', time: '70 min', passing: '70 or above' },
       { level: 'L2 (Practitioner)', target: '2+ years of work experience', questions: '30 case-based MCQ + 3 practical tasks', time: '90 min', passing: '70 or above' },
       { level: 'L1 (Leader)', target: 'Leaders & architects', questions: '25 MCQ + action plan + 2 essays', time: '120 min', passing: '70 or above' },
     ],
@@ -209,7 +209,7 @@ const CERT_DATA: Record<'ko' | 'en', Record<CertTab, CertContent>> = {
     overview:
       'AXIS-C certifies your ability to automate work with AI tools and to understand, verify, and manage AI-generated code — no professional coding background required.\nRather than complex programming, it assesses the practical skills of structuring repetitive work into automation tasks and judging the errors and risks in AI-written code.',
     levels: [
-      { level: 'L3 (Starter)', target: 'Practitioners new to automation', questions: '40 MCQ + 4 practical', time: '60 min', passing: '70 or above' },
+      { level: 'L3 (Starter)', target: 'Practitioners new to automation', questions: '40 MCQ + 4 practical', time: '70 min', passing: '70 or above' },
       { level: 'L2 (Practitioner)', target: 'Practitioners building work automation', questions: '30 case-based MCQ + 3 practical tasks', time: '120 min', passing: '70 or above' },
       { level: 'L1 (Leader)', target: 'Automation operations & governance leads', questions: '25 MCQ + action plan + 2 essays', time: '120 min', passing: '70 or above' },
     ],
@@ -242,7 +242,7 @@ const CERT_DATA: Record<'ko' | 'en', Record<CertTab, CertContent>> = {
     overview:
       'AXIS-H certifies healthcare staff in using AI for non-clinical work such as administration, customer service, infection safety, and communications.\nIt never assesses clinical acts like diagnosis, treatment, prescription, or test interpretation — protecting patient data and preventing anything being mistaken for medical practice are at its core.',
     levels: [
-      { level: 'L3 (Starter)', target: 'Newcomers to non-clinical work', questions: '40 MCQ + 4 practical', time: '60 min', passing: '70 or above' },
+      { level: 'L3 (Starter)', target: 'Newcomers to non-clinical work', questions: '40 MCQ + 4 practical', time: '70 min', passing: '70 or above' },
       { level: 'L2 (Practitioner)', target: 'Non-clinical practitioners', questions: '30 case-based MCQ + 3 practical tasks', time: '90 min', passing: '70 or above' },
       { level: 'L1 (Leader)', target: 'Leaders driving AI adoption in healthcare', questions: '25 MCQ + action plan + 2 essays', time: '120 min', passing: '70 or above' },
     ],
