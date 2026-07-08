@@ -113,10 +113,11 @@ const CERT_COLORS: Record<string, string> = { AXIS: BRAND_BLUE, AXIS_C: '#16A34A
 
 /**
  * Whether the in-exam AI assistant is allowed for a task — driven by the
- * authored `aiToolAllowed` field (the documentation's per-task AI policy).
- * Practical/실습형 + L1 exec-plan carry "LMS 내장 AI" (allowed); 서술형 essays
- * carry "AI 사용 불가". Empty/unset → disallowed. Mirrors the backend gate
- * (`isExamAiAllowed`), which is authoritative.
+ * `aiToolAllowed` field as delivered in the paper. 시험 표준 v2.0: the server
+ * masks this to "AI 사용 불가" for every task of L1/L3 sessions (내장 AI는
+ * L2 전용 — L1은 AI 전면 금지, L3는 AI 도구 없음), so the chat pane only ever
+ * appears for L2. Empty/unset → disallowed. Mirrors the backend gates
+ * (`isSessionAiAllowed` + `isExamAiAllowed`), which are authoritative.
  */
 const AI_DISALLOWED_RE = /불가|불허|없음|금지|미허용|none|not\s*allowed|n\/?a/i;
 function isAiAllowed(aiToolAllowed?: string | null): boolean {

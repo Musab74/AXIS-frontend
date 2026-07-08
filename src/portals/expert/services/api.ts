@@ -145,7 +145,13 @@ export interface GradingTaskDetail {
   aiConfidence: number | null;
   aiRationale: string | null;
   aiCriterionScores: unknown;
-  aiRiskFlags: unknown;
+  aiRiskFlags: AiRiskFlag[] | null;
+  /** v2.0 contract — selection-reason / output-verification / plan-risk gate. */
+  aiGate: AiGate | null;
+  /** v2.0 contract — critical-fail candidate strings (exact enum). */
+  aiCriticalFails: string[] | null;
+  /** v2.0 contract — an injected grading instruction was detected in the answer. */
+  aiInjectionSuspected: boolean;
   /** Which grader produced the first pass: 'l3-answer-key' | 'claude-opus-4-8' | 'hybrid-l3+claude' | 'judge0-autotest'. */
   aiModel: string | null;
   /** Raw AI first-pass points (0..maxPoints). */
@@ -153,6 +159,26 @@ export interface GradingTaskDetail {
   expertScore: number | null;
   expertNotes: string | null;
 }
+
+export interface AiRiskFlag {
+  code: string;
+  severity: 'LOW' | 'MED' | 'HIGH' | 'CRITICAL' | string;
+  detail: string;
+}
+
+export interface AiGate {
+  triggered: boolean;
+  rule: string;
+  contradiction: string | null;
+}
+
+export type DecisionStatus =
+  | 'PROVISIONAL'
+  | 'IN_REVIEW'
+  | 'CONFIRMED_PASS'
+  | 'CONFIRMED_FAIL'
+  | 'INVALIDATED'
+  | null;
 
 export interface GradingDetail {
   sessionId: string;
@@ -165,6 +191,12 @@ export interface GradingDetail {
   totalScore: number | null;
   passed: boolean | null;
   mandatoryReview: boolean;
+  /** v2.0 rule version stamped on the session ("1.1" | "2.0"). */
+  specVersion: string;
+  /** v2.0 decision state machine. Null for legacy v1.1 sessions. */
+  decisionStatus: DecisionStatus;
+  /** Exact review-reason strings (why this session is in human review). */
+  reviewReasons: string[];
   assignedExpertId: string | null;
   proctorWarnings: number;
   cheatingSuspect: boolean;
@@ -254,6 +286,19 @@ export const expertApi = {
   ) => api.post<FinalizeResult>(`/admin/grading/sessions/${sessionId}/finalize`, body),
   getProctorEvidence: (sessionId: string) =>
     api.get<{ items: AiEvidenceItem[] }>(`/admin/sessions/${sessionId}/proctor/evidence`),
+
+  // ── v2.0 decision & gate actions (experts + grading admins) ──────────
+  /** Confirm a triggered gate: zero the contradicted selection field (expert authority). */
+  confirmGate: (sessionId: string, taskId: string, fieldKey: string) =>
+    api.post<{ sessionId: string; taskId: string; fieldKey: string; expertScore: number }>(
+      `/admin/grading/sessions/${sessionId}/tasks/${taskId}/confirm-gate`,
+      { fieldKey },
+    ),
+  /** Human-lock a staged provisional/in-review decision (confirmed_pass/fail + certificate on pass). */
+  confirmDecision: (sessionId: string) =>
+    api.post<{ sessionId: string; decisionStatus: string; passed: boolean; totalScore: number | null }>(
+      `/admin/grading/sessions/${sessionId}/confirm`,
+    ),
 
   // ── L1 eligibility review (AXIS-C L1) ───────────────────────
   getEligibilityQueue: (status?: 'PENDING' | 'APPROVED' | 'REJECTED') =>
