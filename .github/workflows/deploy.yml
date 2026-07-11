@@ -20,10 +20,11 @@ jobs:
           PM2_HOME: /root/.pm2
         run: |
           cd /web/axis/AXIS-frontend
-          git fetch origin main
-          # Reset to FETCH_HEAD, not origin/main: on older git, a branch-specific
-          # fetch does not update the remote-tracking ref, so resetting to
-          # origin/main silently deploys the PREVIOUS push (one behind).
+          # Fetch the canonical repo by explicit URL — this clone's `origin`
+          # remote is stale on the server (fetching it rebuilt the same old
+          # tree every deploy while GitHub main moved on), and reset to
+          # FETCH_HEAD, which works on any git version.
+          git fetch ${{ github.server_url }}/${{ github.repository }} main
           git reset --hard FETCH_HEAD
           npm ci
           npm run build
