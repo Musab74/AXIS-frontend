@@ -161,8 +161,13 @@ function formatPracticalTaskType(
   const raw = task.taskType?.trim();
   if (!raw) return null;
 
-  const canonicalKo = ['현업적용형', '지시설계형', '분석검증형', '리스크판단형'];
-  if (canonicalKo.includes(raw)) return raw;
+  const canonical: Record<string, string> = {
+    현업적용형: 'Work application',
+    지시설계형: 'Instruction design',
+    분석검증형: 'Analysis & verification',
+    리스크판단형: 'Risk assessment',
+  };
+  if (canonical[raw]) return lang === 'ko' ? raw : canonical[raw];
 
   const slug = raw.toLowerCase();
   const bySlug: Record<string, { ko: string; en: string }> = {
@@ -2011,7 +2016,7 @@ function DemoWrittenView({
         <div className={`${EXAM.surface.card} ${EXAM.layout.cardPadding}`}>
           <div className="flex items-center gap-3 mb-[clamp(12px,1vw,24px)] flex-wrap">
             <span className={`${EXAM.text.cardHeading} ${EXAM.color.brand} font-bold tabular-nums`}>
-              실습 {practicalIdx + 1}/{practicalTasks.length}
+              {lang === 'ko' ? '실습' : 'Practical'} {practicalIdx + 1}/{practicalTasks.length}
             </span>
             <span className={`ml-1 inline-flex items-center px-2.5 py-1 rounded-md ${EXAM.text.pill} font-semibold bg-[var(--exam-accent-bg)] text-[var(--exam-accent-text)]`}>
               {formatPracticalTaskType(practicalTask, lang) ?? (lang === 'ko' ? '실습 (참고)' : 'Practice (preview)')}
@@ -2020,7 +2025,7 @@ function DemoWrittenView({
               {practicalTask.points}pt
             </span>
             <span className={`inline-flex items-center px-2 py-1 rounded-md ${EXAM.text.pill} font-semibold bg-[#FFFBEB] text-[#A16207] border border-[#FDE68A]`}>
-              데모 — 답안 미저장
+              {lang === 'ko' ? '데모 — 답안 미저장' : 'Demo — answers not saved'}
             </span>
           </div>
           <h2 className={`${EXAM.text.value} ${EXAM.color.ink} leading-[1.6] mb-3`}>{practicalTask.title}</h2>
@@ -2028,10 +2033,14 @@ function DemoWrittenView({
             {practicalTask.scenario}
           </p>
           <label className={`${EXAM.text.helper} ${EXAM.color.muted} font-semibold mb-2 block`}>
-            연습용 작성란 (제출 시 저장되지 않음)
+            {lang === 'ko' ? '연습용 작성란 (제출 시 저장되지 않음)' : 'Practice area (not saved on submit)'}
           </label>
           <textarea
-            placeholder="실제 시험에서는 여기에 작성한 답안이 채점에 사용됩니다. 데모에서는 저장되지 않습니다."
+            placeholder={
+              lang === 'ko'
+                ? '실제 시험에서는 여기에 작성한 답안이 채점에 사용됩니다. 데모에서는 저장되지 않습니다.'
+                : 'In the real exam, what you write here is used for grading. In the demo it is not saved.'
+            }
             className="w-full min-h-[200px] rounded-md border border-[var(--exam-border)] bg-[var(--exam-surface)] text-[var(--exam-text)] p-3 leading-relaxed focus-visible:outline-2 focus-visible:outline-[var(--exam-accent)]"
           />
         </div>

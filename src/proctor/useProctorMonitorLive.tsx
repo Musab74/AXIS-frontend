@@ -959,10 +959,9 @@ export function ProctorLiveBanner({ state }: { state: ProctorLiveState }) {
 
 const PIP_POS_STORAGE_KEY = 'axis:proctor-pip-pos';
 const PIP_MARGIN = 12;
-// "A bit bigger" than the old 128×96 — 192×144 (4:3) on desktop, scaling down
-// to at most 30% of the viewport width on narrow windows (min 128 so the face
-// stays recognizable).
-const PIP_MAX_W = 192;
+// 240×180 (4:3) on desktop, scaling down to at most 30% of the viewport width
+// on narrow windows (min 128 so the face stays recognizable).
+const PIP_MAX_W = 240;
 const PIP_MIN_W = 128;
 
 function pipWidth(viewportW: number): number {
@@ -982,7 +981,9 @@ interface PipPosFraction {
 function readPipPos(): PipPosFraction {
   if (typeof window === 'undefined') return { fx: 1, fy: 1 };
   try {
-    const raw = window.sessionStorage.getItem(PIP_POS_STORAGE_KEY);
+    // localStorage (not session) — the placement must survive tab close and
+    // the next exam/demo visit, and stay wherever the candidate dropped it.
+    const raw = window.localStorage.getItem(PIP_POS_STORAGE_KEY);
     if (raw) {
       const v = JSON.parse(raw) as Partial<PipPosFraction>;
       if (typeof v.fx === 'number' && typeof v.fy === 'number') {
@@ -1010,6 +1011,10 @@ export function ProctorLivePipPreview({
     startY: number;
     originLeft: number;
     originTop: number;
+    // Real rendered size at drag start — the collapsed pill is much smaller
+    // than pipW×pipH, so clamping must use what is actually on screen.
+    w: number;
+    h: number;
     pointerId: number;
   } | null>(null);
   const [livePos, setLivePos] = useState<{ left: number; top: number } | null>(null);
@@ -1044,6 +1049,8 @@ export function ProctorLivePipPreview({
       startY: e.clientY,
       originLeft: rect.left,
       originTop: rect.top,
+      w: rect.width,
+      h: rect.height,
       pointerId: e.pointerId,
     };
     setLivePos({ left: rect.left, top: rect.top });
@@ -1057,11 +1064,11 @@ export function ProctorLivePipPreview({
     const dy = e.clientY - drag.startY;
     const left = Math.max(
       PIP_MARGIN,
-      Math.min(window.innerWidth - pipW - PIP_MARGIN, drag.originLeft + dx),
+      Math.min(window.innerWidth - drag.w - PIP_MARGIN, drag.originLeft + dx),
     );
     const top = Math.max(
       PIP_MARGIN,
-      Math.min(window.innerHeight - pipH - PIP_MARGIN, drag.originTop + dy),
+      Math.min(window.innerHeight - drag.h - PIP_MARGIN, drag.originTop + dy),
     );
     setLivePos({ left, top });
   };
@@ -1083,7 +1090,7 @@ export function ProctorLivePipPreview({
     };
     setPos(next);
     try {
-      window.sessionStorage.setItem(PIP_POS_STORAGE_KEY, JSON.stringify(next));
+      window.localStorage.setItem(PIP_POS_STORAGE_KEY, JSON.stringify(next));
     } catch {
       /* ignore */
     }
