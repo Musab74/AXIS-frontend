@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Loader2 } from 'lucide-react';
+import { useI18n } from '@/i18n';
 import { EXAM } from './tokens';
 
 /* ─────────────────────────────────────────────────────────────
@@ -33,7 +34,7 @@ interface StepperNavProps {
 export function StepperNav({
   onPrev,
   onNext,
-  prevLabel = '이전',
+  prevLabel,
   nextLabel,
   prevDisabled,
   nextDisabled,
@@ -41,6 +42,10 @@ export function StepperNav({
   loadingLabel,
   className = '',
 }: StepperNavProps) {
+  // 기본 라벨은 UI 언어를 따른다 — 명시적으로 넘긴 라벨이 항상 우선.
+  const { lang } = useI18n();
+  const prevText = prevLabel ?? (lang === 'ko' ? '이전' : 'Previous');
+  const loadingText = loadingLabel ?? (lang === 'ko' ? '진행 중...' : 'Working...');
   return (
     <div className={`flex justify-center gap-3 ${className}`}>
       <button
@@ -49,7 +54,7 @@ export function StepperNav({
         disabled={prevDisabled || isLoading}
         className={`${EXAM.button.outlineLg} ${EXAM.text.buttonLg}`}
       >
-        {prevLabel}
+        {prevText}
       </button>
       <button
         type="button"
@@ -60,7 +65,7 @@ export function StepperNav({
         {isLoading ? (
           <>
             <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 animate-spin" />
-            {loadingLabel ?? '진행 중...'}
+            {loadingText}
           </>
         ) : (
           nextLabel

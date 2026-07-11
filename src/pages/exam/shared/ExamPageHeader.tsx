@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useI18n } from '@/i18n';
 import { EXAM } from './tokens';
 
 /* ─────────────────────────────────────────────────────────────
@@ -61,13 +62,19 @@ function useLiveClock() {
 
 export function ExamPageHeader({
   title,
-  remainingTimeLabel = '남은시간',
+  remainingTimeLabel,
   remainingTime,
   remainingTimeColor,
-  limitTimeLabel = '제한시간',
+  limitTimeLabel,
   limitTime,
   hideClock = false,
 }: ExamPageHeaderProps) {
+  // 라벨 기본값은 UI 언어를 따른다 — 명시적으로 넘긴 라벨이 항상 우선.
+  const { lang } = useI18n();
+  const ko = lang === 'ko';
+  const remainingLabel = remainingTimeLabel ?? (ko ? '남은시간' : 'Time left');
+  const limitLabel = limitTimeLabel ?? (ko ? '제한시간' : 'Time limit');
+  const dateLabel = ko ? '현재날짜' : 'Current date';
   const clock = useLiveClock();
   const timeText = remainingTime ?? clock.time;
 
@@ -79,11 +86,11 @@ export function ExamPageHeader({
       {!hideClock && (
         <div className="flex bg-[var(--exam-header,#2563EB)] flex-col items-center justify-center pr-[clamp(20px,1.8vw,48px)] gap-[clamp(2px,0.2vw,8px)]">
           {limitTime != null ? (
-            <ClockLine label={limitTimeLabel} value={limitTime} />
+            <ClockLine label={limitLabel} value={limitTime} />
           ) : (
-            <ClockLine label="현재날짜" value={clock.date} />
+            <ClockLine label={dateLabel} value={clock.date} />
           )}
-          <ClockLine label={remainingTimeLabel} value={timeText} valueColor={remainingTimeColor} />
+          <ClockLine label={remainingLabel} value={timeText} valueColor={remainingTimeColor} />
         </div>
       )}
     </header>

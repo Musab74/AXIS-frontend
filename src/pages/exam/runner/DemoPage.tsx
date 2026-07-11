@@ -462,7 +462,7 @@ function DemoFullscreenGate({
               <button
                 type="button"
                 onClick={onEnter}
-                className={`${EXAM.button.primaryLg} ${EXAM.text.buttonLg}`}
+                className={`${EXAM.button.primaryLg} ${EXAM.text.buttonLg} w-auto! min-w-[clamp(132px,10vw,260px)] px-[clamp(18px,1.6vw,36px)]`}
               >
                 {t('demo.gate.btn' as never)}
               </button>
@@ -1443,9 +1443,7 @@ export default function DemoPage() {
       <div>
         <ExamPageHeader
           title={` ${certLabel}`}
-          limitTimeLabel="제한시간"
           limitTime={limitTime}
-          remainingTimeLabel="남은시간"
           remainingTime={remaining}
           remainingTimeColor={timerColor}
         />

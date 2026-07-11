@@ -413,7 +413,11 @@ export default function ExamReadinessPage() {
       });
     } catch (err: unknown) {
       const e = err as { response?: { data?: { message?: string } } };
-      setError(e.response?.data?.message ?? 'Failed to start exam. Please try again.');
+      const msg = e.response?.data?.message;
+      // Backend messages are Korean — map the known identity-verification
+      // rejections to a localized string so EN mode isn't mixed-language.
+      const isIdentity = !!msg && (msg.includes('신원 확인') || msg.includes('본인확인'));
+      setError(isIdentity ? t('examReady.err.identity' as never) : msg ?? 'Failed to start exam. Please try again.');
       setStarting(false);
     }
   };
@@ -802,12 +806,16 @@ function StepConfirm({
 
       <div className={`rounded-2xl border border-[#E5E7EB] bg-white px-[clamp(20px,1.7vw,30px)] py-[clamp(14px,1vw,20px)] min-h-[clamp(360px,48vh,560px)] flex items-start ${isMobile ? 'opacity-50' : ''}`}>
         <ul className={`list-disc list-outside p-10 ${EXAM.text.value} ${EXAM.color.ink} font-medium space-y-[clamp(10px,0.9vw,18px)]`}>
-          <li>시험준비가 완료되었습니다.</li>
-          <li>다음 단계에서 <span className="text-blue-500">신분증 촬영 및 얼굴 인증</span>이 진행됩니다.</li>
-          <li>본인인증은 부정행위 방지와 응시자 본인 확인을 위한 필수 절차입니다.</li>
-          <li>조명이 충분한 환경에서 얼굴과 신분증 정보가 선명하게 보이도록 준비해 주세요.</li>
-          <li>본인인증 단계에서는 카메라와 마이크 권한이 반드시 필요합니다.</li>
-          <li className="text-red-500">본인인증이 완료되지 않으면 시험 시작이 제한될 수 있습니다.</li>
+          <li>{t('examReady.confirm.l1' as never)}</li>
+          <li>
+            {t('examReady.confirm.l2pre' as never)}
+            <span className="text-blue-500">{t('examReady.confirm.l2hl' as never)}</span>
+            {t('examReady.confirm.l2post' as never)}
+          </li>
+          <li>{t('examReady.confirm.l3' as never)}</li>
+          <li>{t('examReady.confirm.l4' as never)}</li>
+          <li>{t('examReady.confirm.l5' as never)}</li>
+          <li className="text-red-500">{t('examReady.confirm.l6' as never)}</li>
         </ul>
       </div>
     </div>

@@ -987,7 +987,7 @@ export default function ExamRunnerPage() {
                     type="button"
                     onClick={handleEnterFullscreenAndShare}
                     disabled={displayState.blocked}
-                    className={`${EXAM.button.primaryLg} ${EXAM.text.buttonLg}`}
+                    className={`${EXAM.button.primaryLg} ${EXAM.text.buttonLg} w-auto! min-w-[clamp(132px,10vw,260px)] px-[clamp(18px,1.6vw,36px)]`}
                   >
                     {t('fsgate.btn')}
                   </button>
@@ -1172,9 +1172,7 @@ export default function ExamRunnerPage() {
       {/* ─── 헤더: Readiness 와 동일한 ExamPageHeader. 타이머는 우측 시계 자리에. ─── */}
       <ExamPageHeader
         title={` ${certLabel}`}
-        limitTimeLabel="제한시간"
         limitTime={limitTime}
-        remainingTimeLabel="남은시간"
         remainingTime={remaining}
         remainingTimeColor={timerColor}
       />
