@@ -21,7 +21,10 @@ jobs:
         run: |
           cd /web/axis/AXIS-frontend
           git fetch origin main
-          git reset --hard origin/main
+          # Reset to FETCH_HEAD, not origin/main: on older git, a branch-specific
+          # fetch does not update the remote-tracking ref, so resetting to
+          # origin/main silently deploys the PREVIOUS push (one behind).
+          git reset --hard FETCH_HEAD
           npm ci
           npm run build
           pm2 restart axis-frontend
