@@ -1747,7 +1747,6 @@ export const ko = {
   'examReady.stepper.done': '시험준비 완료',
   'examReady.title': '시험 전 안내사항',
   'examReady.hint.pcOnly': 'PC 환경에서 본인인증 단계로 진행할 수 있습니다.',
-  'examReady.hint.testMode': '테스트 모드: 모든 제한이 해제됐습니다. "다음" 버튼으로 각 화면을 진행하세요.',
   'examReady.act.next': '다음',
   'examReady.act.identify': '본인인증진행',
   'examReady.act.navigating': '이동 중...',
@@ -1771,8 +1770,6 @@ export const ko = {
   'examReady.info.mode': '응시방식',
   'examReady.info.minutes': '{n}분',
   'examReady.info.questions': '{n}문항',
-  'examReady.testMode.on': '테스트 모드 활성',
-  'examReady.testMode.off': '테스트용 버튼 (제한 해제)',
 
   // ── Mobile block (exam / demo cannot run on phones or tablets) ──
   'mobileBlock.alert': '이 기능은 PC 또는 노트북에서만 이용할 수 있습니다. 다른 기기에서 다시 시도해 주세요.',

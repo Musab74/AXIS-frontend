@@ -30,13 +30,6 @@ interface Options {
    */
   onLocalEvent?: (kind: ProctorEventKind, detail?: Record<string, unknown>) => void;
   /**
-   * Test mode — disables ALL violation tracking while preserving the
-   * enter-fullscreen gesture. Listeners are not attached, server is not
-   * pinged, the exit modal never opens, and the beforeunload prompt is
-   * suppressed. Use only for QA flows triggered by the "테스트용 버튼".
-   */
-  testMode?: boolean;
-  /**
    * Real-exam only — capture OS-level window-switch shortcuts.
    *
    * Win+Tab / Win / Alt+Tab never reach the page as blockable keydowns on
@@ -84,7 +77,6 @@ export function useFullscreenGuard({
   onResumeRequested,
   onTerminated,
   onLocalEvent,
-  testMode = false,
   keyboardLock = false,
 }: Options) {
   // preflight (ExamReadinessPage)에서 이미 풀스크린에 진입한 상태로 런너가
@@ -210,9 +202,6 @@ export function useFullscreenGuard({
 
   useEffect(() => {
     if (!state.active) return;
-    // 테스트 모드: 위반 추적 이벤트 리스너를 아예 붙이지 않는다.
-    // → 전체화면 이탈 시 modal/strike/server POST 모두 발생하지 않음.
-    if (testMode) return;
 
     const onFullscreenChange = () => {
       const inFs = isFullscreen();
@@ -324,7 +313,7 @@ export function useFullscreenGuard({
         pendingBlurTimerRef.current = null;
       }
     };
-  }, [state.active, isFullscreen, reportEvent, reportLeaveStrike, testMode, keyboardLock]);
+  }, [state.active, isFullscreen, reportEvent, reportLeaveStrike, keyboardLock]);
 
   // Keyboard Lock — Chrome/Edge desktop only, and only effective while the
   // document is fullscreen (the request persists across fullscreen re-entry,
@@ -336,7 +325,7 @@ export function useFullscreenGuard({
   // On browsers without the API this is a silent no-op and detection falls
   // back to Meta-keydown + blur.
   useEffect(() => {
-    if (!state.active || !keyboardLock || testMode) return;
+    if (!state.active || !keyboardLock) return;
     const kb = (navigator as { keyboard?: { lock?: (codes?: string[]) => Promise<void>; unlock?: () => void } }).keyboard;
     if (!kb?.lock) return;
     kb.lock(['MetaLeft', 'MetaRight', 'AltLeft', 'AltRight', 'Tab', 'F11']).catch(() => {
@@ -349,7 +338,7 @@ export function useFullscreenGuard({
         /* noop */
       }
     };
-  }, [state.active, keyboardLock, testMode]);
+  }, [state.active, keyboardLock]);
 
   const resumeFullscreen = useCallback(async () => {
     onResumeRequested?.();

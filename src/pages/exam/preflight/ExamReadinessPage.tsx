@@ -175,11 +175,6 @@ export default function ExamReadinessPage() {
   const [starting, setStarting] = useState(false);
   const [error, setError] = useState('');
   const [showExitConfirm, setShowExitConfirm] = useState(false);
-  // testMode: 환경점검/확인/모바일 게이트를 모두 해제. 각 화면은 실제와 동일하게
-  // 표시되며, 사용자는 "다음" 버튼을 직접 눌러 한 단계씩 진행한다. 이 플래그는
-  // /proctor → /cbt/exam/:id 까지 navigation state로 전파돼서 후속 게이트도
-  // 무력화한다.
-  const [testMode, setTestMode] = useState(false);
 
   const setItem = (key: CheckKey, patch: Partial<CheckItem>) =>
     setItems((p) => ({ ...p, [key]: { ...p[key], ...patch } }));
@@ -408,7 +403,6 @@ export default function ExamReadinessPage() {
         state: {
           next: `/cbt/exam/${res.data.id}`,
           label,
-          testMode,
         },
       });
     } catch (err: unknown) {
@@ -425,7 +419,6 @@ export default function ExamReadinessPage() {
   // 다음/이전 게이팅. 각 스텝마다 진행 조건을 다르게 적용.
   const canAdvance = (() => {
     if (starting) return false;
-    if (testMode) return true;
     if (currentStep === 2) return envReady && !isMobile;
     if (currentStep === 3) return !isMobile;
     return true;
@@ -565,18 +558,8 @@ export default function ExamReadinessPage() {
                       ? t('ready.hint.resolve' as never)
                       : !canAdvance && currentStep === 3
                       ? t('examReady.hint.pcOnly' as never)
-                      : testMode
-                      ? t('examReady.hint.testMode' as never)
                       : ''}
                   </p>
-                  <button
-                    type="button"
-                    onClick={() => setTestMode(true)}
-                    disabled={testMode}
-                    className={`${EXAM.text.helper} ${EXAM.color.brand} underline underline-offset-2 hover:opacity-80 transition-opacity disabled:no-underline disabled:opacity-60 disabled:cursor-not-allowed shrink-0`}
-                  >
-                    {testMode ? t('examReady.testMode.on' as never) : t('examReady.testMode.off' as never)}
-                  </button>
                 </div>
               )}
             </div>

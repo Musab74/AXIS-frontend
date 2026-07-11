@@ -58,7 +58,6 @@ interface VerifyResult {
 interface NavState {
   next: string;
   label?: string;
-  testMode?: boolean;
 }
 
 interface CameraDevice {
@@ -144,9 +143,6 @@ export default function ProctorPage() {
   const location = useLocation();
   const { t } = useI18n();
   const state = (location.state as NavState | null) ?? null;
-  // testMode: ExamReadinessPage 의 "테스트용 버튼"으로 시작된 흐름. 카메라/마이크
-  // 게이트, 실제 OCR/얼굴비교 API 호출을 모두 건너뛴다. 화면은 정상적으로 표시.
-  const testMode = state?.testMode === true;
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -305,13 +301,13 @@ export default function ProctorPage() {
         setActiveDeviceId(settings.deviceId ?? deviceId ?? null);
         return true;
       } catch (e: any) {
-        if (!testMode) setError(cameraErrorMessage(e));
+        setError(cameraErrorMessage(e));
         return false;
       } finally {
         setCameraSwitching(false);
       }
     },
-    [cameraErrorMessage, cameras, stopStream, testMode],
+    [cameraErrorMessage, cameras, stopStream],
   );
 
   const requestPermissionAndStart = useCallback(async () => {
@@ -323,11 +319,6 @@ export default function ProctorPage() {
       const probe = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
       probe.getTracks().forEach((tr) => tr.stop());
     } catch (e: any) {
-      if (testMode) {
-        // 테스트 모드: 카메라/마이크가 없거나 거부돼도 다음 화면을 보여줘야 한다.
-        setStep('ID_CAPTURE');
-        return;
-      }
       setError(cameraErrorMessage(e));
       return;
     }
@@ -338,8 +329,8 @@ export default function ProctorPage() {
 
     const initial = pickDeviceFor('id', list);
     const ok = await startCameraFor('id', initial?.deviceId);
-    if (ok || testMode) setStep('ID_CAPTURE');
-  }, [cameraErrorMessage, enumerateCameras, pickDeviceFor, startCameraFor, testMode]);
+    if (ok) setStep('ID_CAPTURE');
+  }, [cameraErrorMessage, enumerateCameras, pickDeviceFor, startCameraFor]);
 
   const handlePickDevice = useCallback(
     async (deviceId: string) => {
@@ -393,17 +384,11 @@ export default function ProctorPage() {
         await wait(700);
       }
       setCountdown(null);
-      let blob = await captureBlob();
+      const blob = await captureBlob();
       setCapturing(false);
       if (!blob) {
-        if (testMode) {
-          // 카메라가 없거나 비디오가 준비 안 됐을 때도 흐름을 그대로 유지하기 위해
-          // 1바이트짜리 더미 blob을 사용. submit()이 어차피 호출되지 않는다.
-          blob = new Blob([new Uint8Array([0])], { type: 'image/jpeg' });
-        } else {
-          setError(t('proctor.captureFailed'));
-          return;
-        }
+        setError(t('proctor.captureFailed'));
+        return;
       }
       if (mode === 'ID') {
         setIdBlob(blob);
@@ -413,7 +398,7 @@ export default function ProctorPage() {
         setStep('FACE_DONE');
       }
     },
-    [captureBlob, t, testMode],
+    [captureBlob, t],
   );
 
   // ── Submit ─────────────────────────────────────────────────
@@ -421,34 +406,6 @@ export default function ProctorPage() {
     async (idImg: Blob, faceImg: Blob) => {
       setStep('VERIFYING');
       setError('');
-      // 테스트 모드: 실제 OCR/얼굴비교를 호출하지 않고 가짜 PASS 결과를 만들어
-      // 다음 화면(ResultView)을 그대로 노출. 시각적 흐름은 실제 시험과 동일.
-      if (testMode) {
-        await wait(600);
-        setResult({
-          verdict: 'PASS',
-          reasons: [],
-          idCard: {
-            idType: 'RESIDENT_REGISTRATION',
-            name: '테스트 사용자',
-            birthDate: '1990-01-01',
-            rrnMasked: '900101-1******',
-            rawConfidence: 1,
-          },
-          nameMatch: { expected: '테스트 사용자', actual: '테스트 사용자', matched: true },
-          birthDateMatch: { expected: '1990-01-01', actual: '1990-01-01', matched: true },
-          faceMatch: {
-            decision: 'MATCH',
-            similarity: 99.9,
-            sourceFaceCount: 1,
-            targetFaceCount: 1,
-            matched: true,
-          },
-          liveness: { selfieReceived: true, selfieByteSize: faceImg.size },
-        });
-        setStep('RESULT');
-        return;
-      }
       try {
         const idFile = new File([idImg], 'id.jpg', { type: 'image/jpeg' });
         const faceFile = new File([faceImg], 'selfie.jpg', { type: 'image/jpeg' });
@@ -460,7 +417,7 @@ export default function ProctorPage() {
         setStep('FACE_CAPTURE');
       }
     },
-    [t, testMode],
+    [t],
   );
 
   useEffect(() => {
@@ -479,7 +436,7 @@ export default function ProctorPage() {
   const proceed = () => {
     stopStream();
     if (!state?.next) { navigate('/mypage'); return; }
-    navigate(state.next, testMode ? { state: { testMode: true } } : undefined);
+    navigate(state.next);
   };
 
   /**
@@ -503,8 +460,7 @@ export default function ProctorPage() {
    * 동의 게이트도 자동 스킵.
    *
    * 실패 시 setConsentError 만 띄우고 화면은 그대로 유지 — 사용자가 재시도
-   * 가능. testMode 일 때는 examApi.consent 가 실패해도 그냥 진행 (테스트
-   * 흐름이 막히지 않게).
+   * 가능.
    */
   const submitConsentAndProceed = async () => {
     if (consenting) return;

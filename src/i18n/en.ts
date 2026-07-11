@@ -1715,7 +1715,6 @@ export const en = {
   'examReady.stepper.done': 'Ready to start',
   'examReady.title': 'Exam preparation',
   'examReady.hint.pcOnly': 'Please use a PC to proceed to identity verification.',
-  'examReady.hint.testMode': 'Test mode: all restrictions are disabled. Use "Next" to walk through each screen.',
   'examReady.act.next': 'Next',
   'examReady.act.identify': 'Verify identity',
   'examReady.act.navigating': 'Loading…',
@@ -1739,8 +1738,6 @@ export const en = {
   'examReady.info.mode': 'Delivery',
   'examReady.info.minutes': '{n} min',
   'examReady.info.questions': '{n} questions',
-  'examReady.testMode.on': 'Test mode on',
-  'examReady.testMode.off': 'Enable test mode',
 
   // ── Mobile block (exam / demo cannot run on phones or tablets) ──
   'mobileBlock.alert': 'This function can be done only with a PC or laptop. Please try on another device.',

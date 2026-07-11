@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
-import { useLocation, useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import {
   AlertTriangle,
   Bell,
@@ -142,17 +142,7 @@ const VOICE_STRIKE_HOLD_MS = 4_000;
 export default function ExamRunnerPage() {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const location = useLocation();
   const { t } = useI18n();
-  const demoBypassAutoSubmit = Boolean(
-    (location.state as { demoBypassAutoSubmit?: boolean } | null)?.demoBypassAutoSubmit,
-  );
-  // testMode: ExamReadinessPage 의 "테스트용 버튼"으로 시작된 흐름. 시험 화면은
-  // 정상적으로 표시하되 자동 종료(handleTerminated), 중복 탭 차단, 외부 디스플레이
-  // 차단을 무력화해서 테스터가 끝까지 진행할 수 있게 한다.
-  const testMode = Boolean(
-    (location.state as { testMode?: boolean } | null)?.testMode,
-  );
   const [paper, setPaper] = useState<Paper | null>(null);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [practicalText, setPracticalText] = useState<Record<string, string>>({});
@@ -218,7 +208,6 @@ export default function ExamRunnerPage() {
   // calls `handleTerminated` synchronously inside the strike handler.
   const [voiceStrikes, setVoiceStrikes] = useState(0);
   const [voiceHoldUntil, setVoiceHoldUntil] = useState(0);
-  const [demoDisplayBypassed] = useState(false);
   const saveTimers = useRef<Record<string, number>>({});
   const [proctorStream, setProctorStream] = useState<MediaStream | null>(null);
   const [adminWarning, setAdminWarning] = useState<string | null>(null);
@@ -245,17 +234,11 @@ export default function ExamRunnerPage() {
   }, []);
 
   const handleTerminated = useCallback(() => {
-    if (testMode) {
-      // 테스트 모드에서는 mic/AI/fullscreen 위반에 의한 자동 종료를 무시한다.
-      // eslint-disable-next-line no-console
-      console.info('[exam] termination suppressed (testMode)');
-      return;
-    }
     exitFullscreenSafely();
     navigate(`/cbt/exam/${sessionId}/result`, { replace: true, state: { terminated: true } });
-  }, [navigate, sessionId, testMode]);
+  }, [navigate, sessionId]);
 
-  useExamSessionSocket(sessionId, !!sessionId && !testMode, {
+  useExamSessionSocket(sessionId, !!sessionId, {
     onWarning: (p) => setAdminWarning(p.message),
     onForceTerminate: () => handleTerminated(),
     onTimerPaused: (p) => {
@@ -291,9 +274,6 @@ export default function ExamRunnerPage() {
   // client-visible enforcement here.
   const handleMicEvent = useCallback(
     (e: ProctorMicEvent) => {
-      // 테스트 모드: 마이크 위반(연결끊김/음성스트라이크) 자체를 기록하지 않는다.
-      // → VoiceStrikeModal 도 뜨지 않고 server POST 도 발생하지 않음.
-      if (testMode) return;
       // Hard violation: candidate's mic has been unplugged or stopped
       // delivering audio for >5s. There is no legitimate reason for a mic to
       // disappear mid-exam (it's an Article 28 setup requirement), so this
@@ -372,7 +352,7 @@ export default function ExamRunnerPage() {
         return next;
       });
     },
-    [handleTerminated, sessionId, testMode],
+    [handleTerminated, sessionId],
   );
 
   // Declared BEFORE the proctor hook so its `getLatestFrame` getter can be
@@ -391,8 +371,6 @@ export default function ExamRunnerPage() {
     /** Gemini tier-1 screen every 3s (was 10s) — faster phone/book/object detection. */
     aiReviewMs: 3_000,
     onAiVerdict: (severity, detail) => {
-      // 테스트 모드: AI 감독 배너/스트라이크/종료 모두 무시.
-      if (testMode) return;
       // LOW = log only (no strike), MED = +1 strike + banner, HIGH = terminate.
       setAiBanner({
         severity,
@@ -456,7 +434,6 @@ export default function ExamRunnerPage() {
   const fullscreen = useFullscreenGuard({
     sessionId,
     onTerminated: handleTerminated,
-    testMode,
     // 실전 시험 전용 — Win+Tab/Alt+Tab 을 Keyboard Lock 으로 차단하고
     // 시도 자체를 TAB_SWITCH strike 로 카운트한다. 데모는 기존 동작 유지.
     keyboardLock: true,
@@ -491,14 +468,12 @@ export default function ExamRunnerPage() {
     sessionId,
     intervalMs: 5_000,
   });
-  const displayState = (demoDisplayBypassed || testMode)
-    ? { ...display.state, blocked: false }
-    : display.state;
+  const displayState = display.state;
 
   // Single-tab lock — detect if this exam is open in another tab and
   // terminate this one immediately to prevent side-by-side cheating.
   useDuplicateTabGuard({
-    enabled: !!sessionId && !testMode,
+    enabled: !!sessionId,
     channel: `exam-session-${sessionId ?? ''}`,
     onDuplicateDetected: () => {
       if (sessionId) {
@@ -628,13 +603,13 @@ export default function ExamRunnerPage() {
 
   // Auto-submit on time-over
   useEffect(() => {
-    if (demoDisplayBypassed || demoBypassAutoSubmit || testMode || adminTimerPaused) return;
+    if (adminTimerPaused) return;
     if (paper && remainingMs <= 0 && !submitting && stage !== 'WRITTEN') {
       doSubmit();
     } else if (paper && remainingMs <= 0 && !submitting && paper.session.level === 'L3') {
       doSubmit();
     }
-  }, [remainingMs, paper, submitting, stage, demoDisplayBypassed, demoBypassAutoSubmit, testMode, adminTimerPaused]);
+  }, [remainingMs, paper, submitting, stage, adminTimerPaused]);
 
   const writtenQs = questions;
   const tasks = paper?.tasks ?? [];
