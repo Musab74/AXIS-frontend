@@ -5,6 +5,8 @@ export interface StoredExpertUser {
   userId: string;
   name: string;
   roles: string[];
+  /** Admin reset the password — force a change before normal use. */
+  mustChangePassword?: boolean;
 }
 
 export const WRONG_CREDENTIALS_MSG =

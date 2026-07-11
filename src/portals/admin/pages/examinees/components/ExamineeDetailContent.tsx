@@ -3,6 +3,7 @@ import type {
   ExamineeDetail,
   ExamineeRegistrationDetail,
 } from '@admin/services/api';
+import { MaskedPii } from '@admin/components/shared/MaskedPii';
 import { AccountStatusBadge } from './AccountStatusBadge';
 import { ProfileTab } from '../tabs/ProfileTab';
 import { HistoryTab } from '../tabs/HistoryTab';
@@ -51,7 +52,10 @@ export function ExamineeDetailContent({
       <div className="flex items-start justify-between gap-4 flex-wrap">
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
           <Field label={t('exm.profile.userId')} value={u.userId} />
-          <Field label={t('exm.profile.email')} value={u.phone} />
+          <Field
+            label={t('exm.col.phone')}
+            value={<MaskedPii userDbId={u.id} field="phone" value={u.phone} />}
+          />
           <Field label={t('exm.tab.history')} value={detail.registrations.length} />
           <Field label={t('exm.profile.activePenalty')} value={detail.activePenaltyCount} />
         </div>

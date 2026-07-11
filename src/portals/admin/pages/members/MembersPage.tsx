@@ -23,6 +23,7 @@ import {
   SearchUsersResult,
   UserSummary,
 } from '@admin/services/api';
+import { MaskedPii } from '@admin/components/shared/MaskedPii';
 import { AccountStatusBadge } from '../examinees/components/AccountStatusBadge';
 import { RefundModal } from '../examinees/RefundModal';
 import { useDebounce } from '../examinees/lib/useDebounce';
@@ -214,7 +215,9 @@ export default function MembersPage() {
                   <Td className="text-left! font-mono text-xs">{row.userId}</Td>
                   <Td className="text-left! font-medium">{row.name}</Td>
                   <Td className="text-left! text-sm">{row.email ?? '—'}</Td>
-                  <Td className="text-left! text-sm tabular-nums">{row.phone}</Td>
+                  <Td className="text-left! text-sm tabular-nums">
+                    <MaskedPii userDbId={row.id} field="phone" value={row.phone} />
+                  </Td>
                   <Td>
                     <AccountStatusBadge status={row.accountStatus} />
                   </Td>

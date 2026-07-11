@@ -1,14 +1,15 @@
 import { useI18n } from '@admin/i18n';
 import type { ExamineeDetail } from '@admin/services/api';
+import { MaskedPii } from '@admin/components/shared/MaskedPii';
 import { fmtDate, fmtDateTime } from '../lib/format';
 
 export function ProfileTab({ detail }: { detail: ExamineeDetail }) {
   const { t } = useI18n();
   const u = detail.user;
-  const rows: Array<[string, string]> = [
+  const rows: Array<[string, React.ReactNode]> = [
     [t('exm.profile.userId'), u.userId],
     [t('exm.profile.email'), u.email ?? '—'],
-    [t('exm.profile.birth'), u.birthDate ?? '—'],
+    [t('exm.profile.birth'), <MaskedPii userDbId={u.id} field="birthDate" value={u.birthDate} />],
     [t('exm.profile.gender'), u.gender ?? '—'],
     [t('exm.profile.nice'), u.niceVerified ? '✓' : '✕'],
     [t('exm.profile.joined'), fmtDate(u.createdAt)],

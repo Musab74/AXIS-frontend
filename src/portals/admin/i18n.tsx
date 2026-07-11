@@ -935,6 +935,27 @@ const dict: Dict = {
   "qb.kpi.totalTasks": { ko: "총 실기과제", en: "Total Tasks" },
   "qb.kpi.axisAuthored": { ko: "AXIS 출제 문항", en: "AXIS Authored" },
   "qb.kpi.subjects": { ko: "과목 수", en: "Subjects" },
+
+  // ── masked PII reveal (SUPER_ADMIN) ────────────────────────
+  "pii.reveal.title": { ko: "개인정보 열람", en: "View personal info" },
+  "pii.reveal.desc": {
+    ko: "마스킹된 연락처·생년월일을 열람하려면 사유를 입력하세요. 입력한 사유는 감사 로그에 저장됩니다.",
+    en: "Enter a reason to reveal the masked phone number / birth date. The reason is stored in the audit log.",
+  },
+  "pii.reveal.reason": { ko: "열람 사유", en: "Reason" },
+  "pii.reveal.placeholder": {
+    ko: "예: 환불 처리를 위한 본인 연락",
+    en: "e.g. contacting the member about a refund",
+  },
+  "pii.reveal.submit": { ko: "열람", en: "Reveal" },
+  "pii.reveal.tooltip": {
+    ko: "클릭하여 열람 (사유 입력 필요)",
+    en: "Click to reveal (reason required)",
+  },
+  "pii.reveal.fail": {
+    ko: "개인정보 열람에 실패했습니다",
+    en: "Failed to reveal personal info",
+  },
 };
 
 const Ctx = createContext<{ lang: Lang; setLang: (l: Lang) => void; t: (k: string, vars?: Record<string, string | number>) => string }>({

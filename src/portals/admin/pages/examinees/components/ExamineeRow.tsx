@@ -1,5 +1,6 @@
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button, Td } from '@admin/components/shared/ui-kit';
+import { MaskedPii } from '@admin/components/shared/MaskedPii';
 import { useI18n } from '@admin/i18n';
 import type { ExamineeListRow } from '@admin/services/api';
 import { certLabel, statusBadgeTone } from '../lib/status';
@@ -41,7 +42,7 @@ export function ExamineeRow({
         {row.user.name}
       </Td>
       <Td className="whitespace-nowrap tabular-nums">
-        {row.user.phone}
+        <MaskedPii userDbId={row.user.id} field="phone" value={row.user.phone} />
       </Td>
       <Td className="whitespace-nowrap">
         {certLabel(row.schedule.certType)} {row.schedule.level} ·{' '}

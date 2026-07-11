@@ -23,6 +23,11 @@ export function hasAdminRole(roles: string[] | undefined): boolean {
   return roles.some((role) => ADMIN_ROLES.includes(role as AdminRole));
 }
 
+/** PII reveal / password reset are SUPER_ADMIN-only actions. */
+export function isSuperAdmin(): boolean {
+  return getStoredAdminUser()?.roles.includes('SUPER_ADMIN') ?? false;
+}
+
 export function getStoredAdminUser(): StoredAdminUser | null {
   try {
     const raw = localStorage.getItem('adminUser');

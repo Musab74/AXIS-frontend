@@ -19,7 +19,8 @@ import MyResultsPage from '@expert/pages/results/MyResultsPage';
 import DeadlinesPage from '@expert/pages/deadlines/DeadlinesPage';
 import EligibilityPage from '@expert/pages/eligibility/EligibilityPage';
 import RulesPage from '@expert/pages/rules/RulesPage';
-import { clearExpertSession, isExpertSessionValid } from '@expert/utils/auth';
+import { ForcePasswordChangeModal } from '@expert/components/shared/ForcePasswordChangeModal';
+import { clearExpertSession, getStoredExpertUser, isExpertSessionValid } from '@expert/utils/auth';
 import type { CertType } from '@expert/services/api';
 import { expertApi } from '@expert/services/api';
 
@@ -89,8 +90,14 @@ function ExpertShell() {
     setOverdueCount(n);
   }, []);
 
+  // Admin reset the password to the temp value — block the portal until the
+  // expert sets a real one. Survives reloads because the flag is stored with
+  // the login user in localStorage.
+  const mustChangePassword = getStoredExpertUser()?.mustChangePassword === true;
+
   return (
     <div className="h-screen w-full flex bg-[var(--gray-light)] text-[var(--gray-700)] overflow-hidden border-none">
+      {mustChangePassword && <ForcePasswordChangeModal />}
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar
           competencies={competencies}

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { UserPlus, Loader2, ShieldCheck } from 'lucide-react';
+import { UserPlus, Loader2, ShieldCheck, KeyRound } from 'lucide-react';
 import {
   Card,
   PageHeader,
@@ -12,9 +12,12 @@ import {
   Table,
   Th,
   Td,
+  Modal,
   pushToast,
 } from '@admin/components/shared/ui-kit';
+import { MaskedPii } from '@admin/components/shared/MaskedPii';
 import { adminApi, type CertType, type ExpertRow, type CreateExpertInput } from '@admin/services/api';
+import { isSuperAdmin } from '@admin/utils/auth';
 import { AxiosError } from 'axios';
 
 const CERT_OPTIONS: { value: CertType; label: string; hint: string }[] = [
@@ -37,6 +40,9 @@ export default function ExpertsPage() {
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<CreateExpertInput>(EMPTY_FORM);
   const [submitting, setSubmitting] = useState(false);
+  const [resetTarget, setResetTarget] = useState<ExpertRow | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const superAdmin = isSuperAdmin();
 
   const load = () => {
     setLoading(true);
@@ -89,6 +95,28 @@ export default function ExpertsPage() {
       );
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const confirmReset = async () => {
+    if (!resetTarget || resetting) return;
+    setResetting(true);
+    try {
+      const res = await adminApi.resetUserPassword(resetTarget.id);
+      pushToast(
+        `"${resetTarget.name}" 비밀번호가 ${res.data.tempPassword}(으)로 초기화되었습니다. 다음 로그인 시 변경이 필요합니다.`,
+        'green',
+      );
+      setResetTarget(null);
+    } catch (err) {
+      const msg =
+        (err as AxiosError<{ message?: string | string[] }>)?.response?.data?.message;
+      pushToast(
+        Array.isArray(msg) ? msg.join(', ') : msg || '비밀번호 초기화에 실패했습니다',
+        'red',
+      );
+    } finally {
+      setResetting(false);
     }
   };
 
@@ -203,6 +231,7 @@ export default function ExpertsPage() {
                   <Th>담당 분야</Th>
                   <Th>상태</Th>
                   <Th>최근 로그인</Th>
+                  {superAdmin && <Th>관리</Th>}
                 </tr>
               </thead>
               <tbody>
@@ -210,7 +239,9 @@ export default function ExpertsPage() {
                   <tr key={e.id}>
                     <Td align="left" mono>{e.userId}</Td>
                     <Td align="left" strong>{e.name}</Td>
-                    <Td align="left">{e.phone || '—'}</Td>
+                    <Td align="left">
+                      <MaskedPii userDbId={e.id} field="phone" value={e.phone} />
+                    </Td>
                     <Td>
                       <div className="flex flex-wrap gap-1 justify-center">
                         {e.competencies.length === 0 ? (
@@ -222,6 +253,14 @@ export default function ExpertsPage() {
                     </Td>
                     <Td muted>{e.accountStatus}</Td>
                     <Td muted>{e.lastLoginAt ? new Date(e.lastLoginAt).toLocaleDateString() : '—'}</Td>
+                    {superAdmin && (
+                      <Td>
+                        <Button size="sm" variant="secondary" onClick={() => setResetTarget(e)}>
+                          <KeyRound className="h-3.5 w-3.5 mr-1" />
+                          비밀번호 초기화
+                        </Button>
+                      </Td>
+                    )}
                   </tr>
                 ))}
               </tbody>
@@ -229,6 +268,40 @@ export default function ExpertsPage() {
           </TableWrap>
         )}
       </Card>
+
+      {/* ── Reset password confirm ── */}
+      <Modal
+        open={!!resetTarget}
+        onClose={() => !resetting && setResetTarget(null)}
+        title="비밀번호 초기화"
+        width={440}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setResetTarget(null)} disabled={resetting}>
+              취소
+            </Button>
+            <Button variant="danger" onClick={confirmReset} disabled={resetting}>
+              {resetting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <KeyRound className="h-4 w-4" />
+              )}
+              초기화
+            </Button>
+          </>
+        }
+      >
+        <p className="text-[14px] text-[var(--gray-700)]">
+          <b>{resetTarget?.name}</b>({resetTarget?.userId}) 계정의 비밀번호를 임시 비밀번호{' '}
+          <code className="rounded bg-[var(--gray-100)] px-1.5 py-0.5 font-mono text-[13px]">aa123</code>
+          (으)로 초기화합니다.
+        </p>
+        <ul className="mt-3 list-disc pl-5 text-[13px] text-[var(--gray-600)] space-y-1">
+          <li>기존 로그인 세션은 즉시 종료됩니다.</li>
+          <li>해당 채점위원은 임시 비밀번호로 로그인한 뒤 반드시 새 비밀번호로 변경해야 합니다.</li>
+          <li>이 작업은 감사 로그에 기록됩니다.</li>
+        </ul>
+      </Modal>
     </div>
   );
 }

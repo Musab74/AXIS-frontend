@@ -237,7 +237,14 @@ export interface GradingCounts {
 type LoginResponse = {
   accessToken: string;
   refreshToken: string;
-  user: { id: string; userId: string; name: string; roles: string[] };
+  user: {
+    id: string;
+    userId: string;
+    name: string;
+    roles: string[];
+    /** Set after an admin reset — the portal must force a password change. */
+    mustChangePassword?: boolean;
+  };
 };
 
 export const expertApi = {
@@ -253,6 +260,8 @@ export const expertApi = {
     }
   },
   logout: () => api.post('/auth/logout'),
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post<{ success: true }>('/auth/change-password', { currentPassword, newPassword }),
 
   getQueue: (status?: GradingQueueTab) =>
     api.get<GradingRow[]>('/admin/grading/queue', {

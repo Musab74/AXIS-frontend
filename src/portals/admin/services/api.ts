@@ -811,7 +811,13 @@ export const adminApi = {
     type LoginResponse = {
       accessToken: string;
       refreshToken: string;
-      user: { id: string; userId: string; name: string; roles: string[] };
+      user: {
+        id: string;
+        userId: string;
+        name: string;
+        roles: string[];
+        mustChangePassword?: boolean;
+      };
     };
     try {
       return await api.post<LoginResponse>('/auth/admin/login', { userId, password });
@@ -837,6 +843,14 @@ export const adminApi = {
 
   updateRole: (id: string, role: string, grant: boolean) =>
     api.patch(`/admin/users/${id}/roles`, { role, grant }),
+
+  /** SUPER_ADMIN: reset to the fixed temp password; target must change it at next login. */
+  resetUserPassword: (id: string) =>
+    api.post<{ ok: true; tempPassword: string }>(`/admin/users/${id}/reset-password`),
+
+  /** SUPER_ADMIN: reveal masked phone/birth date. The reason is stored in the audit log. */
+  revealUserPii: (id: string, reason: string) =>
+    api.post<{ phone: string; birthDate: string | null }>(`/admin/users/${id}/pii-reveal`, { reason }),
 
   issuePenalty: (id: string, data: { reason: string; startAt: string; endAt: string; relatedSessionId?: string }) =>
     api.post(`/admin/users/${id}/penalties`, data),

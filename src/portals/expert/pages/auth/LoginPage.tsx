@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { expertApi } from '@expert/services/api';
+import { PW_CHANGED_FLAG } from '@expert/components/shared/ForcePasswordChangeModal';
 import {
   clearExpertSession,
   hasExpertRole,
@@ -17,10 +18,18 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [notice, setNotice] = useState('');
 
   useEffect(() => {
     if (isExpertSessionValid()) navigate('/', { replace: true });
   }, [navigate]);
+
+  useEffect(() => {
+    if (sessionStorage.getItem(PW_CHANGED_FLAG) === '1') {
+      sessionStorage.removeItem(PW_CHANGED_FLAG);
+      setNotice('비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해주세요.');
+    }
+  }, []);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -69,6 +78,12 @@ export default function LoginPage() {
 
         <h1 className="text-xl font-semibold text-slate-900 mb-1">로그인</h1>
         <p className="text-sm text-slate-500 mb-6">채점위원(EXPERT) 계정으로 로그인하세요</p>
+
+        {notice && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm">
+            {notice}
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">

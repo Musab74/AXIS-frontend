@@ -6,6 +6,7 @@ import type {
   UserActivity,
 } from '@admin/services/api';
 import { adminApi } from '@admin/services/api';
+import { MaskedPii } from '@admin/components/shared/MaskedPii';
 import { AccountStatusBadge } from '../../examinees/components/AccountStatusBadge';
 import { ProfileTab } from '../../examinees/tabs/ProfileTab';
 import { HistoryTab } from '../../examinees/tabs/HistoryTab';
@@ -81,7 +82,10 @@ export function MemberDetailContent({
         <div className="flex flex-wrap items-center gap-x-8 gap-y-2">
           <Field label={t('mem.col.userId')} value={u.userId} />
           <Field label={t('mem.col.email')} value={u.email ?? '—'} />
-          <Field label={t('mem.col.phone')} value={u.phone} />
+          <Field
+            label={t('mem.col.phone')}
+            value={<MaskedPii userDbId={u.id} field="phone" value={u.phone} />}
+          />
           <Field label={t('mem.profile.roles')} value={detail.roles.join(', ') || '—'} />
         </div>
         <AccountStatusBadge status={u.accountStatus} />
