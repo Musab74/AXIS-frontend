@@ -300,6 +300,9 @@ export default function Step4PortOneVirtualAccount() {
           (import.meta.env.VITE_PORTONE_CHANNEL_KEY as string | undefined)?.trim() ||
           reqData.channelKey;
 
+        // SDK typings incorrectly require `alipayPlus` on PaymentRequestUnion, but
+        // PortOne rejects VA issuance if any other method option object is present:
+        // "가상계좌 발급 시 virtualAccount 옵션만 허용됩니다."
         const res = await requestPayment({
           storeId: storeId as never,
           channelKey: channelKey as never,
@@ -317,8 +320,7 @@ export default function Step4PortOneVirtualAccount() {
             bankCode: bankCode as never,
             accountExpiry: { validHours: 24 },
           },
-          alipayPlus: {},
-        });
+        } as unknown as Parameters<typeof requestPayment>[0]);
 
         if (!res) {
           setError('가상계좌 발급에 실패했습니다. 다시 시도해 주세요.');
