@@ -16,3 +16,16 @@ export { ExamPageHeader } from './ExamPageHeader';
 export { ExamExitConfirmModal } from './ExamExitConfirmModal';
 export { InfoRow } from './InfoRow';
 export { StepperNav } from './StepperNav';
+// Structured-input primitives for the v3 practical screens ("형식은 UI가 제공한다").
+export { charLen } from './textLength';
+export {
+  Counter,
+  ExamChecklist,
+  ExamInput,
+  ExamRowList,
+  ExamSelect,
+  ExamTable,
+  ExamTextarea,
+  FieldLabel,
+  MaterialsPanel,
+} from './StructuredInputs';

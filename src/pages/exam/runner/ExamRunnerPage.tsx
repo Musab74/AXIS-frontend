@@ -6,6 +6,7 @@ import {
   Bell,
   Bolt,
   Columns2,
+  Flag,
   Globe,
   Home,
   Loader2,
@@ -22,6 +23,9 @@ import { useI18n, LangToggle } from '@/i18n';
 import { examApi, proctorApi, type CertLevel, type ExamPart } from '@/services/api';
 import { EXAM, ExamPageHeader, ExamExitConfirmModal } from '@/pages/exam/shared';
 import { L3PracticalListView, type L3Spec } from './L3PracticalTaskView';
+import { L2PracticalTaskView } from './L2PracticalTaskView';
+import { L1EssayTaskView, L1PlanTaskView } from './L1StructuredViews';
+import { bufferAnswer, clearBuffer, recoverAnswers } from './answerBuffer';
 import { ResultModal, ResultModalButton } from '@/components/ResultModal';
 import {
   useProctorMonitorLive,
@@ -151,6 +155,14 @@ export default function ExamRunnerPage() {
   const [deliverableUploaded, setDeliverableUploaded] = useState<Record<string, string | null>>({}); // taskId → uploaded file name
   const [chatInput, setChatInput] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
+  /**
+   * Real auto-save state. The footer used to show a hard-coded green
+   * "자동 저장 활성" pill that never reflected reality, while save errors were
+   * silently swallowed — a candidate could lose an answer and never know.
+   */
+  const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+  /** Tasks whose latest text the server has NOT accepted yet (retry set). */
+  const dirtyTasks = useRef<Set<string>>(new Set());
   const [activeIdx, setActiveIdx] = useState(0);
   const [stage, setStage] = useState<Stage>('WRITTEN');
   // 화면 배치 모드 (표시 전용 상태). 메인 영역에 보이는 문제 카드 수/배치를 제어한다.
@@ -521,6 +533,15 @@ export default function ExamRunnerPage() {
         ver[t.taskId] = t.version ?? 0;
         if (t.aiChatLog && t.aiChatLog.length) chat[t.taskId] = t.aiChatLog;
       }
+      // Crash/offline recovery: restore locally-buffered work for any task the
+      // server came back empty on (a save that never landed). The server always
+      // wins where it HAS an answer — that is the copy that gets graded.
+      const recovered = recoverAnswers(sessionId, txt);
+      for (const [taskId, text] of Object.entries(recovered)) {
+        txt[taskId] = text;
+        dirtyTasks.current.add(taskId); // push it up on the next interval tick
+      }
+      if (Object.keys(recovered).length) setSaveState('saving');
       setPracticalText(txt);
       setPracticalVersion(ver);
       setPracticalChat(chat);
@@ -567,6 +588,24 @@ export default function ExamRunnerPage() {
     return new Date(paper.session.hardDeadline).getTime() - now;
   }, [paper?.session.hardDeadline, adminTimerPaused, now]);
   const remaining = formatRemaining(remainingMs);
+
+  /**
+   * 잔여 10분·5분 알림 (the spec asks for an alert; the UI only changed colour).
+   * Fires once per threshold, announced to screen readers via aria-live.
+   */
+  const [timeAlert, setTimeAlert] = useState<number | null>(null);
+  const firedAlerts = useRef<Set<number>>(new Set());
+  useEffect(() => {
+    if (!paper || adminTimerPaused || remainingMs <= 0) return;
+    const mins = Math.ceil(remainingMs / 60_000);
+    for (const threshold of [10, 5]) {
+      if (mins === threshold && !firedAlerts.current.has(threshold)) {
+        firedAlerts.current.add(threshold);
+        setTimeAlert(threshold);
+        window.setTimeout(() => setTimeAlert((cur) => (cur === threshold ? null : cur)), 6000);
+      }
+    }
+  }, [remainingMs, paper, adminTimerPaused]);
   // 헤더 우측 첫 줄에 표시할 시험 제한시간(고정). 세션 timing 의 총 시간을 그대로 포맷.
   const limitTime = paper ? formatRemaining(paper.session.timing.totalMinutes * 60_000) : '';
   const color = paper ? CERT_COLORS[paper.session.certType] || BRAND_BLUE : BRAND_BLUE;
@@ -601,15 +640,13 @@ export default function ExamRunnerPage() {
     return () => window.removeEventListener('popstate', onPopState);
   }, [fullscreen.markExpectedExit]);
 
-  // Auto-submit on time-over
+  // Auto-submit on time-over — for EVERY level and EVERY stage. The previous
+  // form skipped an L1/L2 candidate who was still on the WRITTEN stage at T-0,
+  // so they simply ran past the deadline and were never submitted.
   useEffect(() => {
     if (adminTimerPaused) return;
-    if (paper && remainingMs <= 0 && !submitting && stage !== 'WRITTEN') {
-      doSubmit();
-    } else if (paper && remainingMs <= 0 && !submitting && paper.session.level === 'L3') {
-      doSubmit();
-    }
-  }, [remainingMs, paper, submitting, stage, adminTimerPaused]);
+    if (paper && remainingMs <= 0 && !submitting) doSubmit();
+  }, [remainingMs, paper, submitting, adminTimerPaused]);
 
   const writtenQs = questions;
   const tasks = paper?.tasks ?? [];
@@ -663,6 +700,57 @@ export default function ExamRunnerPage() {
 
   const unansweredCount = useMemo(() => writtenQs.filter((q) => !q.selectedChoice).length, [writtenQs]);
 
+  /**
+   * 제출 전 형식 점검 — WARNING ONLY, never blocks (the specs are explicit:
+   * "경고만, 차단 없음"). Previously the confirm modal reported MCQ state only,
+   * so an empty practical or a 12-char 근거 submitted silently.
+   */
+  const formatIssues = useMemo<string[]>(() => {
+    if (!paper) return [];
+    const issues: string[] = [];
+    for (const task of paper.tasks) {
+      const raw = (practicalText[task.taskId] ?? '').trim();
+      if (!raw) {
+        issues.push(t('runner.check.taskEmpty', { title: task.title }));
+        continue;
+      }
+      if (!raw.startsWith('{')) continue; // free-text task — nothing structured to check
+      let env: Record<string, unknown>;
+      try {
+        env = JSON.parse(raw) as Record<string, unknown>;
+      } catch {
+        continue;
+      }
+      // L3: every selection field must be filled to its select_count, and the
+      // 근거 should sit inside its character band.
+      if (task.l3) {
+        const selects = (env.selects ?? {}) as Record<string, string[]>;
+        for (const f of task.l3.fields) {
+          if (f.kind !== 'select') continue;
+          const picked = Array.isArray(selects[f.key]) ? selects[f.key].length : 0;
+          const want = f.selectCount ?? 1;
+          if (picked < want) {
+            issues.push(
+              t('runner.check.selectShort', { title: task.title, label: f.label, n: picked, max: want }),
+            );
+          }
+        }
+        const reason = typeof env.shortReason === 'string' ? env.shortReason : '';
+        const len = Array.from(reason).length;
+        const band = task.l3.reason;
+        if (len < band.min || len > band.max) {
+          issues.push(
+            t('runner.check.reasonRange', { title: task.title, n: len, min: band.min, max: band.max }),
+          );
+        }
+      }
+    }
+    if (unansweredCount > 0) {
+      issues.unshift(t('runner.check.unansweredMcq', { n: unansweredCount }));
+    }
+    return issues;
+  }, [paper, practicalText, unansweredCount, t]);
+
   const updateAnswer = (q: Question, choiceKey: string | null, flagged?: boolean) => {
     setQuestions((prev) => prev.map((x) => (x.questionId === q.questionId ? { ...x, selectedChoice: choiceKey, flagged: flagged ?? x.flagged } : x)));
     if (saveTimers.current[q.questionId]) window.clearTimeout(saveTimers.current[q.questionId]);
@@ -682,6 +770,7 @@ export default function ExamRunnerPage() {
   };
 
   const savePracticalNow = async (taskId: string, contentText: string, chat: { role: 'user' | 'assistant'; text: string; ts: number }[]) => {
+    setSaveState('saving');
     try {
       const res = await examApi.savePractical(sessionId!, {
         taskId,
@@ -690,13 +779,22 @@ export default function ExamRunnerPage() {
         version: practicalVersion[taskId] ?? 0,
       });
       setPracticalVersion((v) => ({ ...v, [taskId]: res.data.version }));
+      dirtyTasks.current.delete(taskId);
+      // The server has it — drop the local mirror for this task.
+      setSaveState(dirtyTasks.current.size ? 'saving' : 'saved');
     } catch {
-      // swallow — auto-save will retry
+      // Keep it dirty so the interval saver retries, and TELL the candidate.
+      dirtyTasks.current.add(taskId);
+      setSaveState('error');
     }
   };
 
   const updatePractical = (taskId: string, text: string) => {
     setPracticalText((t) => ({ ...t, [taskId]: text }));
+    dirtyTasks.current.add(taskId);
+    setSaveState('saving');
+    // Mirror locally FIRST — this survives a crash or a lost connection.
+    if (sessionId) bufferAnswer(sessionId, taskId, text);
     if (saveTimers.current[taskId]) window.clearTimeout(saveTimers.current[taskId]);
     saveTimers.current[taskId] = window.setTimeout(() => {
       savePracticalNow(taskId, text, practicalChat[taskId] ?? []);
@@ -752,6 +850,7 @@ export default function ExamRunnerPage() {
         await savePracticalNow(t.taskId, practicalText[t.taskId] ?? '', practicalChat[t.taskId] ?? []);
       }
       await examApi.submit(sessionId);
+      clearBuffer(sessionId); // the server has everything — drop the local mirror
       exitFullscreenSafely();
       // replace: true — drop the runner from history so browser-back from the
       // result page cannot re-enter an already-submitted exam.
@@ -786,32 +885,26 @@ export default function ExamRunnerPage() {
     navigate('/', { replace: true });
   }, [navigate]);
 
-  // Auto-save every 30 seconds to satisfy exam durability requirements.
+  /**
+   * Durability net: retry every task the server has NOT accepted.
+   *
+   * This used to re-save only `tasks[0]` and the FIRST already-answered question
+   * — i.e. it silently skipped every other task, which is exactly the work a
+   * retry is supposed to protect. Now it flushes the dirty set, so a save that
+   * failed (offline, 5xx) keeps being retried until it lands.
+   */
   useEffect(() => {
     if (!sessionId || !paper) return;
     const id = window.setInterval(() => {
+      if (dirtyTasks.current.size === 0) return;
       void (async () => {
-        const activePractical = tasks[0];
-        if (activePractical) {
-          await savePracticalNow(
-            activePractical.taskId,
-            practicalText[activePractical.taskId] ?? '',
-            practicalChat[activePractical.taskId] ?? [],
-          );
-        }
-        const firstUnsent = writtenQs.find((q) => q.selectedChoice != null);
-        if (firstUnsent) {
-          await examApi.saveAnswer(sessionId, {
-            questionId: firstUnsent.questionId,
-            selectedChoice: firstUnsent.selectedChoice,
-            flagged: firstUnsent.flagged,
-            version: firstUnsent.version,
-          }).catch(() => {});
+        for (const taskId of Array.from(dirtyTasks.current)) {
+          await savePracticalNow(taskId, practicalText[taskId] ?? '', practicalChat[taskId] ?? []);
         }
       })();
     }, 30_000);
     return () => window.clearInterval(id);
-  }, [sessionId, paper, tasks, practicalText, practicalChat, writtenQs]);
+  }, [sessionId, paper, practicalText, practicalChat]);
 
   /* ───────────────────────── Early returns ───────────────────────── */
 
@@ -1174,8 +1267,13 @@ export default function ExamRunnerPage() {
         onZoomReset={zoomReset}
       />
 
-      {/* ─── Stage 탭 (L1/L2 only) — 흰 배경 / brand blue 액센트 ─── */}
-      {paper.session.level !== 'L3' && (
+      {/* ─── Stage 탭 ─── 흰 배경 / brand blue 액센트.
+          Rendered whenever the paper has more than one part. This USED to be
+          gated on `level !== 'L3'` (correct back when L3 was MCQ-only) — but L3
+          now carries 실습형 tasks, and since nothing else mutates `stage`, an L3
+          candidate could never leave WRITTEN: the practical part was unreachable
+          and scored 0/40, i.e. an automatic fail. */}
+      {stageSequence.length > 1 && (
         <div className="bg-[var(--exam-surface)] border-b border-[var(--exam-border)] px-[clamp(16px,2vw,48px)] flex items-stretch gap-1 shrink-0">
           {/* Prev / Next stage — bidirectional walk through the section sequence. */}
           <StageNavButton
@@ -1233,35 +1331,29 @@ export default function ExamRunnerPage() {
               onFileUploaded={(taskId, fileName) =>
                 setDeliverableUploaded((prev) => ({ ...prev, [taskId]: fileName }))
               }
+              level={paper.session.level}
+              certType={paper.session.certType}
             />
           ))}
+        {/* L1 Part B — 10-section 실행계획서 builder (구조화 입력, AI 금지). */}
         {stage === 'DELIVERABLE' && deliverableTask && (
-          <DeliverableView
+          <L1PlanTaskView
+            key={deliverableTask.taskId}
             task={deliverableTask}
             text={practicalText[deliverableTask.taskId] ?? ''}
             setText={(v) => updatePractical(deliverableTask.taskId, v)}
-            chat={practicalChat[deliverableTask.taskId] ?? []}
-            chatInput={chatInput}
-            setChatInput={setChatInput}
-            onSendChat={() => sendChat(deliverableTask.taskId)}
-            aiBusy={aiBusy}
             color={color}
-            sessionId={sessionId ?? ''}
-            uploadedFileName={deliverableUploaded[deliverableTask.taskId] ?? null}
-            onFileUploaded={(fileName) =>
-              setDeliverableUploaded((prev) => ({ ...prev, [deliverableTask.taskId]: fileName }))
-            }
           />
         )}
+        {/* L1 Part C — 요소별 라벨 입력박스 5개 (루브릭 기준과 1:1). */}
         {stage === 'ESSAY' && essayTasks.length > 0 && (
-          <div className="flex-1 overflow-y-auto bg-[var(--exam-bg)]">
+          <div className="flex-1 overflow-y-auto bg-[var(--exam-bg)] p-[clamp(8px,0.6vw,14px)] space-y-[clamp(8px,0.6vw,14px)]">
             {essayTasks.map((et) => (
-              <div key={et.taskId} className="min-h-[70vh] flex flex-col border-b border-[var(--exam-border)] last:border-b-0">
-                <EssayView
+              <div key={et.taskId} className="min-h-[80vh] flex flex-col">
+                <L1EssayTaskView
                   task={et}
                   text={practicalText[et.taskId] ?? ''}
                   setText={(v) => updatePractical(et.taskId, v)}
-                  color={color}
                 />
               </div>
             ))}
@@ -1289,10 +1381,31 @@ export default function ExamRunnerPage() {
         {/* 좌측 — 상태 인디케이터 + 홈 나가기 */}
         <div className="flex items-center gap-3">
           <div className="flex flex-col">
-            <span className={`inline-flex items-center gap-1.5 ${EXAM.color.brand}`}>
-              <span className="w-2 h-2 rounded-full bg-[var(--exam-accent)] shrink-0" />
-              {t('runner.autoSaving')}
-            </span>
+            {/* Real save state — a failed save must be VISIBLE, not swallowed. */}
+            {saveState === 'error' ? (
+              <span
+                role="alert"
+                aria-live="assertive"
+                className="inline-flex items-center gap-1.5 text-[#DC2626] font-semibold"
+              >
+                <span className="w-2 h-2 rounded-full bg-[#DC2626] shrink-0 animate-pulse" />
+                {t('runner.saveFailed')}
+              </span>
+            ) : (
+              <span
+                aria-live="polite"
+                className={`inline-flex items-center gap-1.5 ${saveState === 'saved' ? 'text-[#16A34A]' : EXAM.color.brand}`}
+              >
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${saveState === 'saved' ? 'bg-[#16A34A]' : 'bg-[var(--exam-accent)]'} ${saveState === 'saving' ? 'animate-pulse' : ''}`}
+                />
+                {saveState === 'saving'
+                  ? t('runner.saving')
+                  : saveState === 'saved'
+                    ? t('runner.saved')
+                    : t('runner.autoSaving')}
+              </span>
+            )}
             <span className={`inline-flex items-center gap-1.5 text-[#16A34A]`}>
               <span className="w-2 h-2 rounded-full bg-[#16A34A] shrink-0" />
               화면 공유중 · 감독관 실시간 모니터링
@@ -1352,10 +1465,22 @@ export default function ExamRunnerPage() {
         </div>
       </footer>
 
+      {/* 잔여 10분·5분 알림 — 화면 중앙 상단, 6초 후 자동 소멸 */}
+      {timeAlert !== null && (
+        <div
+          role="alert"
+          aria-live="assertive"
+          className="fixed top-[clamp(64px,7vh,96px)] left-1/2 -translate-x-1/2 z-[90] px-5 py-3 rounded-xl shadow-lg bg-[#FFFBEB] border border-[#FCD34D] text-[#92400E] font-semibold"
+        >
+          ⏱ {t('runner.timeAlert', { n: timeAlert })}
+        </div>
+      )}
+
       <SubmitConfirmModal
         open={confirmSubmit}
         unanswered={writtenQs.map((q, i) => ({ idx: i + 1, answered: !!q.selectedChoice })).filter((q) => !q.answered).map((q) => q.idx)}
         flagged={writtenQs.map((q, i) => ({ idx: i + 1, flagged: q.flagged })).filter((q) => q.flagged).map((q) => q.idx)}
+        formatIssues={formatIssues}
         onCancel={() => setConfirmSubmit(false)}
         onConfirm={() => {
           setConfirmSubmit(false);
@@ -1879,12 +2004,15 @@ function SubmitConfirmModal({
   open,
   unanswered,
   flagged,
+  formatIssues,
   onCancel,
   onConfirm,
 }: {
   open: boolean;
   unanswered: number[];
   flagged: number[];
+  /** 제출 전 형식 점검 결과 — 경고만, 제출을 막지 않는다. */
+  formatIssues: string[];
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -1904,6 +2032,23 @@ function SubmitConfirmModal({
           <p className={`${EXAM.text.body} ${EXAM.color.body} mb-5 leading-relaxed`}>
             {t('runner.confirmDesc')}
           </p>
+          {/* 제출 전 형식 점검 — 실습/서술 파트까지 포함. 경고일 뿐 제출은 가능. */}
+          {formatIssues.length > 0 && (
+            <div className={`mb-3 ${EXAM.surface.warningBox} p-3.5`}>
+              <div className={`${EXAM.text.button} ${EXAM.color.warning} mb-1.5`}>
+                {t('runner.check.title')}
+              </div>
+              <ul className={`${EXAM.text.helper} text-[#A16207] space-y-0.5 list-disc pl-4`}>
+                {formatIssues.slice(0, 8).map((msg, i) => (
+                  <li key={i}>{msg}</li>
+                ))}
+                {formatIssues.length > 8 && <li>{t('runner.others', { n: formatIssues.length - 8 })}</li>}
+              </ul>
+              <div className={`${EXAM.text.pill} text-[#A16207] mt-2 opacity-80`}>
+                {t('runner.check.warnOnly')}
+              </div>
+            </div>
+          )}
           {unanswered.length > 0 && (
             <div className={`mb-3 ${EXAM.surface.warningBox} p-3.5`}>
               <div className={`${EXAM.text.button} ${EXAM.color.warning} mb-1.5`}>{t('runner.unanswered', { n: unanswered.length })}</div>
@@ -1957,6 +2102,7 @@ function WrittenView({
   color: string;
   layout: ExamLayout;
 }) {
+  const { t } = useI18n();
   const mainScrollRef = useRef<HTMLElement | null>(null);
   // Jump the question pane to the top when the candidate selects a new
   // question — otherwise after navigating to Q40 they'd land on a pane still
@@ -2005,6 +2151,21 @@ function WrittenView({
         <span className={`inline-flex items-center px-2 py-1 rounded-md ${EXAM.text.pill} font-semibold bg-[var(--exam-surface-2)] ${EXAM.color.body}`}>
           {q.points}pt
         </span>
+        {/* 나중에 볼 문항 플래그. The data model, the answer sheet, the submit
+            modal and the i18n keys all supported this — but no UI ever set it. */}
+        <button
+          type="button"
+          aria-pressed={!!q.flagged}
+          onClick={() => onChange(q, q.selectedChoice, !q.flagged)}
+          className={`ml-auto inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border transition-colors ${EXAM.text.pill} font-semibold ${
+            q.flagged
+              ? 'bg-[#FEF3C7] border-[#FCD34D] text-[#92400E]'
+              : `border-[var(--exam-border)] ${EXAM.color.muted} hover:bg-[var(--exam-surface-2)]`
+          }`}
+        >
+          <Flag className="w-3.5 h-3.5" fill={q.flagged ? 'currentColor' : 'none'} />
+          {q.flagged ? t('runner.unflag') : t('runner.flag')}
+        </button>
       </div>
 
       <h2 className={`${EXAM.text.value} ${EXAM.color.ink} leading-[1.75] mb-[clamp(20px,1.6vw,40px)]`}>
@@ -2192,6 +2353,8 @@ function PracticalListView({
   sessionId,
   uploadedFiles,
   onFileUploaded,
+  level,
+  certType,
 }: {
   tasks: Task[];
   text: Record<string, string>;
@@ -2205,6 +2368,8 @@ function PracticalListView({
   sessionId: string;
   uploadedFiles: Record<string, string | null>;
   onFileUploaded: (taskId: string, fileName: string) => void;
+  level: CertLevel;
+  certType: string;
 }) {
   const { t } = useI18n();
   const [active, setActive] = useState(0);
@@ -2234,21 +2399,120 @@ function PracticalListView({
           </button>
         ))}
       </aside>
-      <DeliverableView
-        task={current}
-        text={text[current.taskId] ?? ''}
-        setText={(v) => setText(current.taskId, v)}
-        chat={chat[current.taskId] ?? []}
-        chatInput={chatInput}
-        setChatInput={setChatInput}
-        onSendChat={() => onSendChat(current.taskId)}
-        aiBusy={aiBusy}
-        color={color}
-        sessionId={sessionId}
-        uploadedFileName={uploadedFiles[current.taskId] ?? null}
-        onFileUploaded={(fileName) => onFileUploaded(current.taskId, fileName)}
-      />
+      {level === 'L2' && certType === 'AXIS' ? (
+        // AXIS L2 v3: 4-panel structured practical (제공자료 · 구조화 입력 · 내장 AI).
+        // The single free-text textarea it replaces made the exam a "표 그리기
+        // 시험" — every required_submission item now has its own input.
+        //
+        // Scoped to the AXIS series: AXIS_C (coding) and AXIS_H practicals are
+        // file-upload/code tasks with a different answer shape, so they keep the
+        // free-text + upload view.
+        <L2PracticalTaskView
+          key={current.taskId}
+          task={current}
+          text={text[current.taskId] ?? ''}
+          setText={(v) => setText(current.taskId, v)}
+          color={color}
+          aiPanel={
+            isAiAllowed(current.aiToolAllowed) ? (
+              <AiChatPanel
+                chat={chat[current.taskId] ?? []}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                onSendChat={() => onSendChat(current.taskId)}
+                aiBusy={aiBusy}
+                color={color}
+              />
+            ) : undefined
+          }
+        />
+      ) : (
+        <DeliverableView
+          task={current}
+          text={text[current.taskId] ?? ''}
+          setText={(v) => setText(current.taskId, v)}
+          chat={chat[current.taskId] ?? []}
+          chatInput={chatInput}
+          setChatInput={setChatInput}
+          onSendChat={() => onSendChat(current.taskId)}
+          aiBusy={aiBusy}
+          color={color}
+          sessionId={sessionId}
+          uploadedFileName={uploadedFiles[current.taskId] ?? null}
+          onFileUploaded={(fileName) => onFileUploaded(current.taskId, fileName)}
+        />
+      )}
     </div>
+  );
+}
+
+/** The embedded-AI chat column — shared by the L2 practical view. */
+function AiChatPanel({
+  chat,
+  chatInput,
+  setChatInput,
+  onSendChat,
+  aiBusy,
+  color,
+}: {
+  chat: { role: 'user' | 'assistant'; text: string; ts: number }[];
+  chatInput: string;
+  setChatInput: (v: string) => void;
+  onSendChat: () => void;
+  aiBusy: boolean;
+  color: string;
+}) {
+  const { t } = useI18n();
+  return (
+    <>
+      <div className={`px-[clamp(12px,1vw,20px)] py-[clamp(8px,0.7vw,14px)] border-b border-[var(--exam-border)] ${EXAM.text.pill} ${EXAM.color.muted} uppercase tracking-wider font-semibold`}>
+        {t('runner.aiHelper')}
+      </div>
+      <div className="flex-1 overflow-y-auto p-[clamp(10px,0.9vw,18px)] space-y-2">
+        {chat.length === 0 && (
+          <div className={`${EXAM.text.helper} ${EXAM.color.muted} italic`}>{t('runner.aiNote')}</div>
+        )}
+        {chat.map((m, i) => (
+          <div
+            key={i}
+            className={`${EXAM.text.helper} leading-relaxed rounded-lg px-3 py-2 ${
+              m.role === 'user'
+                ? 'bg-[var(--exam-accent-bg)] text-[var(--exam-accent-text)] ml-6'
+                : 'bg-[#F0FDF4] text-[#15803D] mr-6'
+            }`}
+          >
+            <span className={`font-semibold uppercase mr-1.5 ${EXAM.text.pill}`}>
+              {m.role === 'user' ? t('runner.aiMe') : 'AI'}:
+            </span>
+            {m.text}
+          </div>
+        ))}
+        {aiBusy && (
+          <div className={`${EXAM.text.helper} leading-relaxed rounded-lg px-3 py-2 bg-[#F0FDF4] text-[#15803D] mr-6 animate-pulse`}>
+            <span className={`font-semibold uppercase mr-1.5 ${EXAM.text.pill}`}>AI:</span>
+            {t('runner.aiThinking')}
+          </div>
+        )}
+      </div>
+      <div className="border-t border-[var(--exam-border)] p-[clamp(8px,0.7vw,14px)] flex gap-2">
+        <input
+          value={chatInput}
+          onChange={(e) => setChatInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && !aiBusy && onSendChat()}
+          disabled={aiBusy}
+          placeholder={t('runner.aiAsk')}
+          className={`flex-1 bg-[var(--exam-surface)] border border-[var(--exam-border)] rounded-lg px-3 py-2 ${EXAM.text.helper} ${EXAM.color.ink} placeholder:text-[var(--exam-text-muted)] focus:border-[var(--exam-accent)] focus:outline-none transition-colors disabled:opacity-60`}
+        />
+        <button
+          onClick={onSendChat}
+          disabled={aiBusy}
+          className={`px-[clamp(12px,1vw,22px)] py-2 rounded-lg text-white transition-colors hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed ${EXAM.text.button}`}
+          style={{ background: color }}
+        >
+          {aiBusy ? t('runner.aiSending') : t('runner.aiSend')}
+        </button>
+      </div>
+    </>
   );
 }
 
@@ -2418,35 +2682,6 @@ function DeliverableView({
   );
 }
 
-function EssayView({ task, text, setText, color }: { task: Task; text: string; setText: (v: string) => void; color: string }) {
-  const { t } = useI18n();
-  return (
-    <section className="flex-1 grid grid-cols-2 gap-[clamp(10px,0.8vw,18px)] p-[clamp(10px,0.8vw,18px)] overflow-hidden bg-[var(--exam-bg)]">
-      <div className={`${EXAM.surface.card} p-[clamp(16px,1.4vw,32px)] overflow-y-auto`}>
-        <div className={`${EXAM.text.pill} ${EXAM.color.brand} mb-2 uppercase tracking-wider font-semibold`}>
-          {t('runner.essayInstruction', { n: task.points, min: task.durationMin })}
-        </div>
-        <h3 className={`${EXAM.text.cardHeading} ${EXAM.color.ink} mb-3`}>{task.title}</h3>
-        <p className={`${EXAM.text.body} ${EXAM.color.body} whitespace-pre-wrap leading-relaxed`}>{task.scenario}</p>
-        <div className={`mt-5 ${EXAM.surface.warningBox} px-4 py-3 ${EXAM.text.helper} ${EXAM.color.warning} leading-relaxed`}>
-          {t('runner.plagiarismNote')}
-        </div>
-      </div>
-      <div className={`${EXAM.surface.card} flex flex-col overflow-hidden`}>
-        <div className={`px-[clamp(12px,1vw,20px)] py-[clamp(8px,0.7vw,14px)] border-b border-[var(--exam-border)] ${EXAM.text.pill} uppercase tracking-wider font-semibold flex justify-between items-center`}>
-          <span className={EXAM.color.muted}>{t('runner.answer')}</span>
-          <span style={{ color }} className="tabular-nums">{t('runner.wordCount', { n: text.trim().split(/\s+/).filter(Boolean).length })}</span>
-        </div>
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder={t('runner.essayPh')}
-          className={`flex-1 bg-[var(--exam-surface)] p-[clamp(12px,1vw,22px)] ${EXAM.text.body} ${EXAM.color.ink} outline-none resize-none placeholder:text-[var(--exam-text-muted)] leading-relaxed`}
-        />
-      </div>
-    </section>
-  );
-}
 
 function FullscreenExitModal({
   open,
