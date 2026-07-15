@@ -866,6 +866,27 @@ export const adminApi = {
   getSchedules: (params?: { certType?: CertType; level?: CertLevel; status?: ScheduleStatus }) =>
     api.get<ScheduleRow[]>('/schedules', { params }),
 
+  getOnDemandSettings: () =>
+    api.get<{
+      businessHoursStart: number;
+      businessHoursEnd: number;
+      defaultSlotCapacity: number;
+      slotUnitMinutes: number;
+    }>('/admin/schedules/on-demand-settings'),
+
+  updateOnDemandSettings: (data: {
+    businessHoursStart?: number;
+    businessHoursEnd?: number;
+    defaultSlotCapacity?: number;
+    slotUnitMinutes?: number;
+  }) =>
+    api.patch<{
+      businessHoursStart: number;
+      businessHoursEnd: number;
+      defaultSlotCapacity: number;
+      slotUnitMinutes: number;
+    }>('/admin/schedules/on-demand-settings', data),
+
   createSchedule: (data: {
     certType: CertType;
     level: CertLevel;
@@ -1069,7 +1090,16 @@ export const adminApi = {
     api.get<ExamineeDetail>(`/admin/examinees/${userId}`),
   adminRefundRegistration: (
     registrationId: string,
-    body: { mode: AdminRefundMode; reason: string },
+    body: {
+      mode: AdminRefundMode;
+      reason: string;
+      refundAccount?: {
+        bank: string;
+        number: string;
+        holderName: string;
+        holderPhoneNumber?: string;
+      };
+    },
   ) => api.post<AdminRefundResult>(`/admin/registrations/${registrationId}/refund`, body),
 
   // ── Admin inquiries (Q&A) ──────────────────────────────

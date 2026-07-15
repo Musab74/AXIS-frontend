@@ -33,7 +33,7 @@ import { adminPageIdFromPath, adminPathForPage } from '@admin/adminRoutes';
 function RequireAuth({ children }: { children: React.ReactElement }) {
   if (isAdminSessionValid()) return children;
   clearAdminSession();
-  return <Navigate to="login" replace />;
+  return <Navigate to="/login" replace />;
 }
 
 function AdminShell() {

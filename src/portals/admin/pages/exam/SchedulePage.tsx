@@ -3,6 +3,7 @@ import { Plus } from 'lucide-react';
 import { ScheduleCalendarView } from '@admin/pages/exam/ScheduleCalendarView';
 import { NewExamPanel } from '@admin/pages/exam/NewExamPanel';
 import { ScheduleDetailPanel } from '@admin/pages/exam/ScheduleDetailPanel';
+import { OnDemandSettingsPanel } from '@admin/pages/exam/OnDemandSettingsPanel';
 import {
   Card,
   PageHeader,
@@ -38,6 +39,10 @@ const STATUS_TONE: Record<ScheduleStatus, { tone: ChipTone; key: string }> = {
   CANCELLED: { tone: 'gray', key: 'sched.status.cancelled' },
 };
 
+/** Official fixed rounds use 1–999; on-demand / rolling slots use 1001+. */
+const ON_DEMAND_ROUND_MIN = 1001;
+const SEAT_POLL_MS = 20_000;
+
 function certLabel(c: CertType): string {
   return c === 'AXIS_C' ? 'AXIS-C' : c === 'AXIS_H' ? 'AXIS-H' : 'AXIS';
 }
@@ -54,11 +59,13 @@ function fmtExamDateTime(r: ScheduleRow): string {
 }
 
 type ViewMode = 'list' | 'calendar';
+type KindFilter = 'rounds' | 'ondemand';
 const PAGE_SIZE = 20;
 
 export function ScheduleScreen() {
   const { t } = useI18n();
   const [view, setView] = useState<ViewMode>('calendar');
+  const [kind, setKind] = useState<KindFilter>('rounds');
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<ScheduleRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -76,28 +83,40 @@ export function ScheduleScreen() {
 
   useEffect(() => {
     let cancelled = false;
-    setRows(null);
-    setError(null);
-    adminApi
-      .getSchedules({
-        certType: filter.certType,
-        level: filter.level,
-        status: filter.status,
-      })
-      .then((res) => {
-        if (!cancelled) setRows(res.data);
-      })
-      .catch((e) => {
-        if (!cancelled) setError(e?.response?.data?.message ?? 'Failed to load schedules');
-      });
+    const load = (silent = false) => {
+      if (!silent) {
+        setRows(null);
+        setError(null);
+      }
+      adminApi
+        .getSchedules({
+          certType: filter.certType,
+          level: filter.level,
+          status: filter.status,
+        })
+        .then((res) => {
+          if (!cancelled) setRows(res.data);
+        })
+        .catch((e) => {
+          if (!cancelled && !silent) {
+            setError(e?.response?.data?.message ?? 'Failed to load schedules');
+          }
+        });
+    };
+    load(false);
+    const timer = window.setInterval(() => load(true), SEAT_POLL_MS);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, [filter.certType, filter.level, filter.status, reloadKey]);
 
   const filtered = useMemo(() => {
     if (!rows) return [];
     return rows.filter((r) => {
+      const isOnDemand = r.roundNumber >= ON_DEMAND_ROUND_MIN;
+      if (kind === 'ondemand' && !isOnDemand) return false;
+      if (kind === 'rounds' && isOnDemand) return false;
       if (filter.year && String(r.year) !== filter.year) return false;
       if (filter.q) {
         const hay = `${certLabel(r.certType)} ${r.level} ${r.year} ${r.roundNumber} ${r.venue}`.toLowerCase();
@@ -105,7 +124,7 @@ export function ScheduleScreen() {
       }
       return true;
     });
-  }, [rows, filter.q, filter.year]);
+  }, [rows, filter.q, filter.year, kind]);
 
   const calendarDate = useMemo(() => {
     if (!filter.year) return new Date();
@@ -114,13 +133,18 @@ export function ScheduleScreen() {
 
   useEffect(() => {
     setPage(1);
-  }, [filter.certType, filter.level, filter.status, filter.year, filter.q, view]);
+  }, [filter.certType, filter.level, filter.status, filter.year, filter.q, view, kind]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const pagedRows = useMemo(
     () => filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
     [filtered, page],
   );
+
+  const kindTabs: TabItem<KindFilter>[] = [
+    { id: 'rounds', label: t('sched.kind.rounds') },
+    { id: 'ondemand', label: t('sched.kind.ondemand') },
+  ];
 
   const tabs: TabItem<ViewMode>[] = [
     { id: 'calendar', label: t('sched.view.calendar') },
@@ -154,13 +178,17 @@ export function ScheduleScreen() {
     <div>
       <PageHeader
         title={t('page.schedule.title')}
-        subtitle={`${t('page.schedule.sub')}${t('sched.subSuffix', { n: rows?.length ?? 0 })}`}
+        subtitle={`${t('page.schedule.sub')}${t('sched.subSuffix', { n: filtered.length })}`}
         actions={
           <Button variant="blue" onClick={openCreate}>
             <Plus className="w-3.5 h-3.5" /> {t('sched.new')}
           </Button>
         }
       />
+
+      <Tabs tabs={kindTabs} active={kind} onChange={setKind} />
+
+      {kind === 'ondemand' && <OnDemandSettingsPanel />}
 
       <Tabs tabs={tabs} active={view} onChange={setView} />
 
@@ -226,6 +254,7 @@ export function ScheduleScreen() {
                   <Th>{t('sched.col.regPeriod')}</Th>
                   <Th>{t('sched.col.datetime')}</Th>
                   <Th align="right">{t('sched.col.cap')}</Th>
+                  <Th>{t('sched.col.seatsLeft')}</Th>
                   <Th>{t('sched.col.regProgress')}</Th>
                   <Th>{t('sched.col.statusH')}</Th>
                   <Th align="right">{t('sched.col.actions')}</Th>
@@ -234,20 +263,21 @@ export function ScheduleScreen() {
               <tbody>
                 {rows === null && (
                   <tr>
-                    <Td colSpan={9} className="!text-center !text-[var(--gray-400)] !py-12">
+                    <Td colSpan={10} className="!text-center !text-[var(--gray-400)] !py-12">
                       {t('common.loading')}
                     </Td>
                   </tr>
                 )}
                 {rows !== null && filtered.length === 0 && (
                   <tr>
-                    <Td colSpan={9} className="!text-center !text-[var(--gray-400)] !py-12">
+                    <Td colSpan={10} className="!text-center !text-[var(--gray-400)] !py-12">
                       {t('common.empty')}
                     </Td>
                   </tr>
                 )}
                 {pagedRows.map((r) => {
                   const cfg = STATUS_TONE[r.status];
+                  const remaining = Math.max(0, r.capacity - r.currentCount);
                   const regPct =
                     r.capacity > 0 ? Math.round((r.currentCount / r.capacity) * 100) : null;
                   return (
@@ -261,6 +291,11 @@ export function ScheduleScreen() {
                       <Td className="tabular-nums">{fmtExamDateTime(r)}</Td>
                       <Td align="right" className="tabular-nums">
                         {r.capacity.toLocaleString()}
+                      </Td>
+                      <Td className="tabular-nums">
+                        <span className={remaining <= 5 ? 'text-[var(--red)]' : 'text-[var(--gray-700)]'}>
+                          {remaining.toLocaleString()}
+                        </span>
                       </Td>
                       <Td>
                         <span className="text-[12px] text-[var(--gray-500)] tabular-nums">

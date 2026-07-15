@@ -3,9 +3,11 @@ import { useI18n } from '@/i18n';
 import { useWizard } from '@/pages/apply/lib/WizardContext';
 import { H_CARD, T_BODY, T_META, INK_900, GRAY_500, BORDER, ACCENT } from '@/pages/apply/lib/applyTokens';
 import { ApplySectionHeader } from '@/pages/apply/components/ApplySectionHeader';
+import { SuspendedSeriesNotice } from '@/pages/apply/components/SuspendedSeriesNotice';
 import type { CertLevel, CertType, ScheduleSummary } from '@/pages/apply/lib/WizardContext';
 import { schedulesApi } from '@/services/api';
 import { isApplyKcpDemo } from '@/pages/apply/lib/applyKcpDemo';
+import { isApplySeriesSuspended } from '@/pages/apply/lib/suspendedSeries';
 
 function formatDate(iso: string, time?: string) {
   const d = new Date(iso);
@@ -365,13 +367,32 @@ function L3SlotPicker() {
 
   useEffect(() => {
     if (!selectedDate || !selectedCert) return;
-    setLoadingSlots(true);
-    setError('');
-    schedulesApi
-      .slots(selectedCert, selectedDate, selectedLevel ?? 'L3')
-      .then((r) => setSlots(r.data))
-      .catch(() => setError(t('apply.step2.slotsLoadFailed' as never)))
-      .finally(() => setLoadingSlots(false));
+    let cancelled = false;
+    let first = true;
+    const load = () => {
+      if (first) setLoadingSlots(true);
+      setError('');
+      schedulesApi
+        .slots(selectedCert, selectedDate, selectedLevel ?? 'L3')
+        .then((r) => {
+          if (!cancelled) setSlots(r.data);
+        })
+        .catch(() => {
+          if (!cancelled) setError(t('apply.step2.slotsLoadFailed' as never));
+        })
+        .finally(() => {
+          if (!cancelled) {
+            setLoadingSlots(false);
+            first = false;
+          }
+        });
+    };
+    load();
+    const timer = window.setInterval(load, 20_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
   }, [selectedDate, selectedCert, selectedLevel, t]);
 
   useEffect(() => {
@@ -620,7 +641,36 @@ function L3SlotPicker() {
   );
 }
 
+function SuspendedSeriesStep() {
+  const { t } = useI18n();
+  const { selectedCert, prevStep } = useWizard();
+  if (!selectedCert) return null;
+  return (
+    <div>
+      <ApplySectionHeader
+        title={t('apply.s2.l3Title')}
+        sub={t('apply.s2.suspendedSub')}
+      />
+      <SuspendedSeriesNotice cert={selectedCert} />
+      <div className="sticky bottom-0 sm:static bg-white py-4 sm:py-0">
+        <button
+          type="button"
+          onClick={prevStep}
+          className="w-full h-12 rounded-xl text-[13px] lg:text-[14px] font-medium border bg-white hover:bg-[#F8FAFC] transition-colors cursor-pointer"
+          style={{ borderColor: BORDER, color: GRAY_500 }}
+        >
+          {t('apply.nav.prev')}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 export default function Step2Session() {
+  const { selectedCert } = useWizard();
+  if (isApplySeriesSuspended(selectedCert)) {
+    return <SuspendedSeriesStep />;
+  }
   if (isApplyKcpDemo()) {
     return <Step2KcpStub />;
   }

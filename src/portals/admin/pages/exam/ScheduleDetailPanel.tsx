@@ -86,6 +86,10 @@ export function ScheduleDetailPanel({
             value={`${schedule.capacity.toLocaleString()}${t('sched.cap.suffix')}`}
           />
           <Row
+            label={t('sched.col.seatsLeft')}
+            value={Math.max(0, schedule.capacity - schedule.currentCount).toLocaleString()}
+          />
+          <Row
             label={t('sched.col.regProgress')}
             value={`${schedule.currentCount.toLocaleString()}${regPct != null ? ` (${regPct}%)` : ''}`}
           />
