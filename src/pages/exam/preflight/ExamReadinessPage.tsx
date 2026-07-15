@@ -53,45 +53,42 @@ interface ExamStructure {
   practicalType: 'tasks' | 'deliverable_essay' | 'none';
 }
 
-// Exam structure by level (matching backend exam-spec.ts, 시험 표준 v2.0).
-// New L3 sessions run the v2.0 shape: 객관식 50분 + 실습 20분 = 70분. In-flight
-// v1.1 sessions keep their server-issued timing (the runner reads
-// session.timing / hardDeadline, never this table).
+// Exam structure by level (mirrors backend LEVEL_TIMING_V3 / L3_TIMING_WITH_PRACTICALS_V3
+// in exam-spec.ts, 시험 표준 v3.0). written/practical are the spec's recommended
+// split only — the exam runs a single timer over totalMinutes and the candidate
+// moves freely between parts. In-flight sessions keep their server-issued timing
+// (the runner reads session.hardDeadline, never this table).
 const EXAM_STRUCTURE: Record<string, ExamStructure> = {
   L3: {
-    totalMinutes: 70,
+    totalMinutes: 90,
     writtenMinutes: 50,
     writtenQuestions: 40,
-    practicalMinutes: 20,
-    practicalTasks: 4,
+    practicalMinutes: 40,
+    practicalTasks: 8,
     practicalType: 'tasks',
   },
   L2: {
-    totalMinutes: 90,
-    writtenMinutes: 30,
+    totalMinutes: 120,
+    writtenMinutes: 50,
     writtenQuestions: 30,
-    practicalMinutes: 60,
+    practicalMinutes: 70,
     practicalTasks: 3,
     practicalType: 'tasks',
   },
   L1: {
-    totalMinutes: 120,
-    writtenMinutes: 30,
+    totalMinutes: 150,
+    writtenMinutes: 40,
     writtenQuestions: 25,
-    practicalMinutes: 90,
+    practicalMinutes: 110,
     practicalTasks: 3, // 1 exec-plan + 2 essays
     practicalType: 'deliverable_essay',
   },
 };
 
-// Per-series overrides (matching backend CERT_TIMING_OVERRIDES): AXIS-C L2 runs
-// 120 min vs 90 for AXIS/AXIS-H.
-function getExamStructure(certType: string | undefined, level: string | undefined): ExamStructure {
-  const base = EXAM_STRUCTURE[level || 'L3'] || EXAM_STRUCTURE.L3;
-  if (certType === 'AXIS_C' && level === 'L2') {
-    return { ...base, totalMinutes: 120, practicalMinutes: 90 };
-  }
-  return base;
+// v3.0 runs every series' L2 at 120분, so the old AXIS-C-only override is gone —
+// the backend likewise skips CERT_TIMING_OVERRIDES on v3 sessions.
+function getExamStructure(_certType: string | undefined, level: string | undefined): ExamStructure {
+  return EXAM_STRUCTURE[level || 'L3'] || EXAM_STRUCTURE.L3;
 }
 
 // STEPS is built inside the component so labels can go through t().
