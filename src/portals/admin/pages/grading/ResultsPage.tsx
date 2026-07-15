@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react';
-import { Download, Megaphone, MessageSquare } from 'lucide-react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Download, Loader2, Megaphone, MessageSquare, RotateCcw, Search } from 'lucide-react';
 import {
   Card,
   PageHeader,
@@ -12,63 +12,230 @@ import {
   SimpleKpiCard,
   pushToast,
   Pagination,
+  FilterBar,
+  Select,
 } from '@admin/components/shared/ui-kit';
 import { useI18n } from '@admin/i18n';
-import { adminApi, GradingRow, GradingCounts } from '@admin/services/api';
+import {
+  adminApi,
+  GradingRow,
+  ReportFilterParams,
+  triggerBlobDownload,
+} from '@admin/services/api';
+import { AxiosError } from 'axios';
+import GradingDetailModal from './GradingDetailModal';
 
-const PAGE_SIZE = 20;
+type CertFilter = 'all' | 'AXIS' | 'AXIS_C' | 'AXIS_H';
+type LevelFilter = 'all' | 'L1' | 'L2' | 'L3';
+type ResultFilter = 'all' | 'pass' | 'fail' | 'pending';
+type PublishFilter = 'all' | 'published' | 'unpublished';
+
+function certLabel(certType: string): string {
+  if (certType === 'AXIS_C') return 'AXIS-C';
+  if (certType === 'AXIS_H') return 'AXIS-H';
+  return 'AXIS';
+}
+
+async function extractBlobError(e: unknown): Promise<string | null> {
+  const err = e as { response?: { data?: unknown } };
+  const data = err?.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const parsed = JSON.parse(await data.text()) as { message?: string };
+      if (typeof parsed?.message === 'string') return parsed.message;
+    } catch {
+      /* ignore */
+    }
+  }
+  if (e instanceof AxiosError) {
+    const msg = e.response?.data?.message;
+    if (typeof msg === 'string') return msg;
+  }
+  return null;
+}
+
+function apiErrorMessage(e: unknown, fallback: string): string {
+  if (e instanceof AxiosError) {
+    const msg = e.response?.data?.message;
+    if (typeof msg === 'string') return msg;
+    if (Array.isArray(msg) && typeof msg[0] === 'string') return msg[0];
+  }
+  return fallback;
+}
 
 export default function ResultsPage() {
   const { t } = useI18n();
   const [rows, setRows] = useState<GradingRow[] | null>(null);
-  const [counts, setCounts] = useState<GradingCounts | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [publishing, setPublishing] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState<number>(20);
+  const [detailSessionId, setDetailSessionId] = useState<string | null>(null);
+
+  const [search, setSearch] = useState('');
+  const [certFilter, setCertFilter] = useState<CertFilter>('all');
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
+  const [resultFilter, setResultFilter] = useState<ResultFilter>('all');
+  const [publishFilter, setPublishFilter] = useState<PublishFilter>('all');
+
+  const reload = useCallback(() => {
+    setError(null);
+    return adminApi
+      .getGradingQueue('final')
+      .then((r) => {
+        setRows(r.data);
+      })
+      .catch((e) => {
+        setError(apiErrorMessage(e, 'Failed to load results'));
+        setRows([]);
+      });
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
-    Promise.all([adminApi.getGradingQueue('final'), adminApi.getGradingCounts()])
-      .then(([r, c]) => {
-        if (cancelled) return;
-        setRows(r.data);
-        setCounts(c.data);
+    adminApi
+      .getGradingQueue('final')
+      .then((r) => {
+        if (!cancelled) setRows(r.data);
       })
-      .catch((e) => !cancelled && setError(e?.response?.data?.message ?? 'Failed to load results'));
+      .catch((e) => {
+        if (!cancelled) {
+          setError(apiErrorMessage(e, 'Failed to load results'));
+          setRows([]);
+        }
+      });
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const stats = useMemo(() => {
+  const filtered = useMemo(() => {
     const items = rows ?? [];
+    const q = search.trim().toLowerCase();
+    return items.filter((r) => {
+      if (certFilter !== 'all' && r.certType !== certFilter) return false;
+      if (levelFilter !== 'all' && r.level !== levelFilter) return false;
+      if (resultFilter === 'pass' && r.result !== 'pass') return false;
+      if (resultFilter === 'fail' && r.result !== 'fail') return false;
+      if (resultFilter === 'pending' && r.result != null) return false;
+      if (publishFilter === 'published' && !r.announced) return false;
+      if (publishFilter === 'unpublished' && r.announced) return false;
+      if (q && !r.candidate.toLowerCase().includes(q)) return false;
+      return true;
+    });
+  }, [rows, search, certFilter, levelFilter, resultFilter, publishFilter]);
+
+  const stats = useMemo(() => {
+    const items = filtered;
     const passed = items.filter((r) => r.result === 'pass').length;
     const failed = items.filter((r) => r.result === 'fail').length;
+    const partial = items.filter((r) => {
+      if (r.result === 'pass' || r.level === 'L3') return false;
+      const w = r.writtenScore ?? 0;
+      const p = r.practicalScore ?? 0;
+      return (w >= 60 && p < 60) || (w < 60 && p >= 60);
+    }).length;
     return {
       total: items.length,
       passed,
       failed,
+      partial,
       passRate: items.length > 0 ? ((passed / items.length) * 100).toFixed(1) : '—',
     };
-  }, [rows]);
+  }, [filtered]);
 
-  const totalPages = rows ? Math.max(1, Math.ceil(rows.length / PAGE_SIZE)) : 1;
-  const visible = rows ? rows.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE) : [];
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const visible = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+
+  useEffect(() => {
+    setPage(1);
+    setSelected(new Set());
+  }, [search, certFilter, levelFilter, resultFilter, publishFilter, pageSize]);
+
+  const resetFilters = () => {
+    setSearch('');
+    setCertFilter('all');
+    setLevelFilter('all');
+    setResultFilter('all');
+    setPublishFilter('all');
+  };
 
   const toggleAll = () => {
-    if (selected.size === visible.length) {
+    if (visible.length > 0 && visible.every((r) => selected.has(r.sessionId))) {
       setSelected(new Set());
     } else {
       setSelected(new Set(visible.map((r) => r.sessionId)));
     }
   };
 
-  const onPublish = () => {
-    setConfirmOpen(false);
-    pushToast(t('res.toastPublished', { n: selected.size }), 'green');
-    setSelected(new Set());
+  const buildExportParams = (): ReportFilterParams => {
+    const params: ReportFilterParams = {};
+    if (certFilter !== 'all') params.certType = certFilter;
+    if (levelFilter !== 'all') params.level = levelFilter;
+    // When every visible row shares one year-round, scope the export.
+    const rounds = new Set(
+      filtered
+        .filter((r) => r.year != null && r.roundNumber != null)
+        .map((r) => `${r.year}-${r.roundNumber}`),
+    );
+    if (rounds.size === 1) params.round = [...rounds][0];
+    return params;
   };
+
+  const onExport = async () => {
+    if (!filtered.length) {
+      pushToast(t('res.exportEmpty'), 'orange');
+      return;
+    }
+    setExporting(true);
+    try {
+      const params = buildExportParams();
+      const res = await adminApi.downloadGradingStatus(params);
+      const roundPart = params.round ? `_${params.round}` : '';
+      const certPart = params.certType && params.certType !== 'all' ? `_${params.certType}` : '';
+      const levelPart = params.level ? `_${params.level}` : '';
+      triggerBlobDownload(res.data, `results${certPart}${levelPart}${roundPart}.xlsx`);
+      pushToast(t('res.exportOk'), 'green');
+    } catch (e) {
+      const msg = (await extractBlobError(e)) || t('res.exportFailed');
+      pushToast(msg, 'red');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const onPublish = async () => {
+    if (selected.size === 0) return;
+    setPublishing(true);
+    try {
+      const res = await adminApi.publishResults([...selected]);
+      setConfirmOpen(false);
+      setSelected(new Set());
+      if (res.data.newlyAnnounced === 0) {
+        pushToast(t('res.toastAlreadyPublished'), 'orange');
+      } else {
+        pushToast(
+          t('res.toastPublished', {
+            schedules: res.data.newlyAnnounced,
+            sessions: res.data.sessionCount,
+          }),
+          'green',
+        );
+      }
+      await reload();
+    } catch (e) {
+      pushToast(apiErrorMessage(e, t('res.publishFailed')), 'red');
+    } finally {
+      setPublishing(false);
+    }
+  };
+
+  const allVisibleSelected =
+    visible.length > 0 && visible.every((r) => selected.has(r.sessionId));
 
   return (
     <div>
@@ -77,15 +244,25 @@ export default function ResultsPage() {
         subtitle={t('page.results.sub')}
         actions={
           <>
-            <Button variant="secondary">
-              <Download className="w-3.5 h-3.5" /> {t('res.exportBatch')}
+            <Button variant="secondary" onClick={onExport} disabled={exporting || rows === null}>
+              {exporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}{' '}
+              {t('res.exportBatch')}
             </Button>
-            <Button variant="secondary" disabled>
+            <Button
+              variant="secondary"
+              disabled
+              title={t('res.objectionsSoon')}
+              className="opacity-50 cursor-not-allowed"
+            >
               <MessageSquare className="w-3.5 h-3.5" /> {t('res.objections', { n: 0 })}
             </Button>
             <Button
               variant="blue"
-              disabled={selected.size === 0}
+              disabled={selected.size === 0 || publishing}
               onClick={() => setConfirmOpen(true)}
               className={selected.size === 0 ? 'opacity-50 cursor-not-allowed' : ''}
             >
@@ -95,7 +272,7 @@ export default function ResultsPage() {
         }
       />
 
-      <div className="mb-4 grid grid-cols-5 gap-3.5">
+      <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3.5">
         <SimpleKpiCard
           label={t('res.kpi.total')}
           value={stats.total}
@@ -112,7 +289,8 @@ export default function ResultsPage() {
           unit={t('unit.people')}
           meta={
             <>
-              <span className="font-medium text-[var(--green)]">{stats.passRate}%</span> {t('dash.col.passRate')}
+              <span className="font-medium text-[var(--green)]">{stats.passRate}%</span>{' '}
+              {t('dash.col.passRate')}
             </>
           }
         />
@@ -128,15 +306,72 @@ export default function ResultsPage() {
         />
         <SimpleKpiCard
           label={t('res.kpi.partial')}
-          value="—"
-          meta={<span className="text-[var(--gray-500)]">{t('common.empty')}</span>}
+          value={stats.partial}
+          unit={t('unit.people')}
+          meta={<span className="text-[var(--gray-500)]">{t('res.partial.l2note')}</span>}
         />
         <SimpleKpiCard
           label={t('res.kpi.objections')}
           value="—"
-          meta={<span className="text-[var(--gray-500)]">{t('common.empty')}</span>}
+          meta={<span className="text-[var(--gray-500)]">{t('res.objectionsSoon')}</span>}
         />
       </div>
+
+      <FilterBar className="mb-4 flex-wrap gap-2">
+        <Select
+          value={certFilter}
+          onChange={(e) => setCertFilter(e.target.value as CertFilter)}
+          aria-label={t('res.filter.certAll')}
+        >
+          <option value="all">{t('res.filter.certAll')}</option>
+          <option value="AXIS">AXIS</option>
+          <option value="AXIS_C">AXIS-C</option>
+          <option value="AXIS_H">AXIS-H</option>
+        </Select>
+        <Select
+          value={levelFilter}
+          onChange={(e) => setLevelFilter(e.target.value as LevelFilter)}
+          aria-label={t('res.filter.levelAll')}
+        >
+          <option value="all">{t('res.filter.levelAll')}</option>
+          <option value="L3">L3</option>
+          <option value="L2">L2</option>
+          <option value="L1">L1</option>
+        </Select>
+        <Select
+          value={resultFilter}
+          onChange={(e) => setResultFilter(e.target.value as ResultFilter)}
+          aria-label={t('res.filter.resultAll')}
+        >
+          <option value="all">{t('res.filter.resultAll')}</option>
+          <option value="pass">{t('res.pass')}</option>
+          <option value="fail">{t('res.fail')}</option>
+          <option value="pending">{t('res.pending')}</option>
+        </Select>
+        <Select
+          value={publishFilter}
+          onChange={(e) => setPublishFilter(e.target.value as PublishFilter)}
+          aria-label={t('res.filter.publishAll')}
+        >
+          <option value="all">{t('res.filter.publishAll')}</option>
+          <option value="published">{t('res.published')}</option>
+          <option value="unpublished">{t('res.unpublished')}</option>
+        </Select>
+        <div className="relative min-w-[180px] flex-1 max-w-xs">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[var(--gray-400)] pointer-events-none" />
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder={t('res.search.placeholder')}
+            className="w-full h-9 pl-8 pr-3 border border-[var(--gray-border)] rounded-md text-[13px] bg-white"
+            aria-label={t('res.search.placeholder')}
+          />
+        </div>
+        <Button variant="secondary" size="sm" onClick={resetFilters} type="button">
+          <RotateCcw className="w-3.5 h-3.5" /> {t('res.filter.reset')}
+        </Button>
+      </FilterBar>
 
       {error && (
         <Card className="p-4 mb-4 border-rose-200 bg-rose-50/40 text-sm text-rose-700">{error}</Card>
@@ -150,8 +385,9 @@ export default function ResultsPage() {
                 <Th align="center">
                   <input
                     type="checkbox"
-                    checked={selected.size === visible.length && visible.length > 0}
+                    checked={allVisibleSelected}
                     onChange={toggleAll}
+                    aria-label="Select all on page"
                   />
                 </Th>
                 <Th>{t('res.col.examinee')}</Th>
@@ -187,6 +423,7 @@ export default function ResultsPage() {
                       <input
                         type="checkbox"
                         checked={checked}
+                        aria-label={`Select ${r.candidate}`}
                         onChange={() => {
                           const next = new Set(selected);
                           if (checked) next.delete(r.sessionId);
@@ -197,9 +434,9 @@ export default function ResultsPage() {
                     </Td>
                     <Td strong>{r.candidate}</Td>
                     <Td>
-                      <span className="inline-flex items-center gap-1.5">
+                      <span className="inline-flex items-center gap-1.5 flex-wrap">
                         <span className="font-semibold text-[var(--primary)]">
-                          {r.certType === 'AXIS_C' ? 'AXIS-C' : r.certType === 'AXIS_H' ? 'AXIS-H' : 'AXIS'}
+                          {certLabel(r.certType)}
                         </span>
                         <b>{r.level}</b>
                         {r.roundNumber != null && (
@@ -214,10 +451,10 @@ export default function ResultsPage() {
                       {r.writtenScore ?? '—'}
                     </Td>
                     <Td align="right" className="tabular-nums">
-                      —
+                      {r.practicalScore ?? '—'}
                     </Td>
                     <Td align="right" strong className="tabular-nums">
-                      {r.writtenScore ?? '—'}
+                      {r.totalScore ?? r.writtenScore ?? '—'}
                     </Td>
                     <Td>
                       {r.result === 'pass' ? (
@@ -229,10 +466,19 @@ export default function ResultsPage() {
                       )}
                     </Td>
                     <Td>
-                      <span className="text-[var(--gray-600)]">{t('res.unpublished')}</span>
+                      {r.announced ? (
+                        <span className="text-[var(--teal,#0D9488)]">{t('res.published')}</span>
+                      ) : (
+                        <span className="text-[var(--gray-600)]">{t('res.unpublished')}</span>
+                      )}
                     </Td>
                     <Td align="right">
-                      <Button variant="blue" size="sm">
+                      <Button
+                        variant="blue"
+                        size="sm"
+                        type="button"
+                        onClick={() => setDetailSessionId(r.sessionId)}
+                      >
                         {t('common.detailBtn')}
                       </Button>
                     </Td>
@@ -243,23 +489,31 @@ export default function ResultsPage() {
           </Table>
         </TableWrap>
         <Pagination
-          page={page}
+          page={safePage}
           totalPages={totalPages}
           onChange={setPage}
-          total={rows?.length}
+          total={filtered.length}
+          pageSize={pageSize}
+          onPageSizeChange={setPageSize}
         />
       </div>
+
       <Modal
         open={confirmOpen}
-        onClose={() => setConfirmOpen(false)}
+        onClose={() => !publishing && setConfirmOpen(false)}
         title={null}
         width={480}
         footer={
           <>
-            <Button variant="secondary" onClick={() => setConfirmOpen(false)}>
+            <Button
+              variant="secondary"
+              onClick={() => setConfirmOpen(false)}
+              disabled={publishing}
+            >
               {t('res.cancel')}
             </Button>
-            <Button variant="blue" onClick={onPublish}>
+            <Button variant="blue" onClick={onPublish} disabled={publishing}>
+              {publishing ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}{' '}
               {t('res.publishConfirm')}
             </Button>
           </>
@@ -280,8 +534,14 @@ export default function ResultsPage() {
           </div>
         </div>
       </Modal>
-      {/* counts/stats currently unused beyond UI hooks; reserved for future kpi tweaks */}
-      <span className="hidden">{counts ? '' : ''}</span>
+
+      {detailSessionId && (
+        <GradingDetailModal
+          sessionId={detailSessionId}
+          readOnly
+          onClose={() => setDetailSessionId(null)}
+        />
+      )}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   RefreshCw,
   Download,
   ArrowRight,
+  Loader2,
 } from 'lucide-react';
 import {
   Card,
@@ -12,10 +13,18 @@ import {
   Button,
   CertTag,
   certCodeOf,
+  pushToast,
 } from '@admin/components/shared/ui-kit';
 import { useI18n } from '@admin/i18n';
 import { MiniScheduleCalendar } from '@admin/pages/dashboard/MiniScheduleCalendar';
-import { adminApi, DashboardStats, LiveSummary, PassRateStats, CertType } from '@admin/services/api';
+import {
+  adminApi,
+  DashboardStats,
+  LiveSummary,
+  PassRateStats,
+  triggerBlobDownload,
+} from '@admin/services/api';
+import { AxiosError } from 'axios';
 
 const WEEKDAY_KEYS = [
   'dash.weekday.sun',
@@ -42,10 +51,22 @@ function formatToday(t: (k: string, vars?: Record<string, string | number>) => s
   });
 }
 
+function todayYmd(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 export function DashboardScreen({
   onJumpToMonitoring,
+  onJumpToStats,
+  onJumpToSchedule,
 }: {
   onJumpToMonitoring: () => void;
+  onJumpToStats: () => void;
+  onJumpToSchedule: () => void;
 }) {
   const { t } = useI18n();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -53,6 +74,7 @@ export function DashboardScreen({
   const [live, setLive] = useState<LiveSummary | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
 
   const refresh = () => {
     setLoading(true);
@@ -78,18 +100,36 @@ export function DashboardScreen({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const onDailyReport = async () => {
+    setExporting(true);
+    try {
+      const day = todayYmd();
+      const res = await adminApi.downloadGradingStatus({ from: day, to: day });
+      triggerBlobDownload(res.data, `daily-report_${day}.xlsx`);
+      pushToast(t('dash.reportOk'), 'green');
+    } catch (e) {
+      const msg =
+        e instanceof AxiosError && typeof e.response?.data?.message === 'string'
+          ? e.response.data.message
+          : t('dash.reportFailed');
+      pushToast(msg, 'red');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const fmtNum = (n: number) => n.toLocaleString();
 
   const todayInProgress = live?.takers ?? 0;
   const todayWarnings = live?.warnings ?? 0;
-  const todayCompleted = Math.max(0, todayInProgress - todayWarnings);
+  const gradedCompleted = stats?.gradingDonut.completed ?? 0;
   const gradingPendingCount = stats ? stats.gradingDonut.reviewing + stats.gradingDonut.waiting : '—';
 
   const passRateSummary = useMemo(
     () =>
       (passRate?.byCert ?? []).map((c) => ({
         cert: c.certType,
-        taken: c.registered,
+        registered: c.registered,
         passed: c.passed,
       })),
     [passRate],
@@ -102,12 +142,16 @@ export function DashboardScreen({
         subtitle={`${t('dash.todaysOps')} · ${formatToday(t)} · ${t('dash.autoRefresh')}`}
         actions={
           <>
-            <Button variant="secondary" onClick={refresh}>
+            <Button variant="secondary" onClick={refresh} disabled={loading}>
               <RefreshCw className={`w-3.5 h-3.5 ${loading ? 'animate-spin' : ''}`} />
               {t('common.refresh')}
             </Button>
-            <Button variant="secondary">
-              <Download className="w-3.5 h-3.5" />
+            <Button variant="secondary" onClick={onDailyReport} disabled={exporting}>
+              {exporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}
               {t('dash.dailyReport')}
             </Button>
           </>
@@ -119,16 +163,18 @@ export function DashboardScreen({
       )}
 
       {/* KPI grid */}
-      <div className="grid grid-cols-4 gap-3.5 mb-5">
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3.5 mb-5">
         <SimpleKpiCard
           label={t('dash.kpi.todayTakers')}
-          value={stats ? fmtNum(todayInProgress + todayCompleted) : '—'}
+          value={live ? fmtNum(todayInProgress) : '—'}
           unit={t('unit.people')}
           meta={
             <>
               {t('dash.inProgress')}{' '}
-              <span className="font-medium text-[var(--gray-900)]">{fmtNum(todayInProgress)}</span> · {t('dash.completed')}{' '}
-              <span className="font-medium text-[var(--blue)]">{fmtNum(todayCompleted)}</span>
+              <span className="font-medium text-[var(--gray-900)]">{fmtNum(todayInProgress)}</span>
+              {' · '}
+              {t('dash.kpi.cheatAlerts')}{' '}
+              <span className="font-medium text-[var(--red)]">{fmtNum(todayWarnings)}</span>
             </>
           }
         />
@@ -153,6 +199,9 @@ export function DashboardScreen({
               <span className="font-medium text-[var(--gray-900)]">{stats?.gradingDonut.waiting ?? '—'}</span> ·{' '}
               {t('grade.kpi.reviewNeeded')}{' '}
               <span className="font-medium text-[var(--orange)]">{stats?.gradingDonut.reviewing ?? '—'}</span>
+              {' · '}
+              {t('dash.completed')}{' '}
+              <span className="font-medium text-[var(--blue)]">{fmtNum(gradedCompleted)}</span>
             </>
           }
         />
@@ -170,21 +219,16 @@ export function DashboardScreen({
       </div>
 
       {/* live / pass-rate / upcoming row */}
-      <div className="grid grid-cols-[1.15fr_1.15fr_0.7fr] gap-3.5 mb-4">
+      <div className="grid grid-cols-1 lg:grid-cols-[1.15fr_1.15fr_0.7fr] gap-3.5 mb-4">
         {/* live exams */}
         <Card>
           <CardHeader
-            title={
-              <>
-                {t('dash.activeExam')}
-              </>
-            }
+            title={<>{t('dash.activeExam')}</>}
             right={<span className="text-[11px] text-[var(--gray-400)]">{t('dash.live30s')}</span>}
           />
           <div className="px-[18px] pt-1 pb-1">
             {live?.inProgress ? (
               <LiveExamRow
-                cert={(live.examName?.includes('AXIS-C') ? 'AXIS_C' : live.examName?.includes('AXIS-H') ? 'AXIS_H' : 'AXIS') as CertType}
                 name={live.examName ?? ''}
                 takers={live.takers}
                 started=""
@@ -201,7 +245,15 @@ export function DashboardScreen({
         <Card>
           <CardHeader
             title={t('dash.passRateSummary')}
-            right={<button className="text-[12px] text-[var(--gray-500)] hover:text-[var(--primary)]">{t('common.statsDetail')}</button>}
+            right={
+              <button
+                type="button"
+                onClick={onJumpToStats}
+                className="text-[12px] text-[var(--gray-500)] hover:text-[var(--primary)]"
+              >
+                {t('common.statsDetail')}
+              </button>
+            }
           />
           <div className="px-[18px] pb-[10px]">
             {passRate === null ? (
@@ -210,7 +262,8 @@ export function DashboardScreen({
               <div className="py-6 text-center text-sm text-[var(--gray-400)]">{t('common.empty')}</div>
             ) : (
               passRateSummary.map((r) => {
-                const rate = r.taken > 0 ? Number(((r.passed / r.taken) * 100).toFixed(1)) : null;
+                const rate =
+                  r.registered > 0 ? Number(((r.passed / r.registered) * 100).toFixed(1)) : null;
 
                 return (
                   <div
@@ -222,7 +275,7 @@ export function DashboardScreen({
                         <CertTag code={certCodeOf(r.cert)} />
                       </div>
                       <div className="mt-1 text-[12px] text-[var(--gray-500)]">
-                        {t('dash.col.taken')} {r.taken} · {t('dash.col.passed')} {r.passed}
+                        {t('dash.col.registered')} {r.registered} · {t('dash.col.passed')} {r.passed}
                       </div>
                     </div>
 
@@ -244,10 +297,20 @@ export function DashboardScreen({
             title={
               <>
                 {t('dash.upcoming')}{' '}
-                <span className="text-[11px] text-[var(--gray-400)] font-medium">{t('dash.alerts.within7d')}</span>
+                <span className="text-[11px] text-[var(--gray-400)] font-medium">
+                  {t('dash.alerts.within7d')}
+                </span>
               </>
             }
-            right={<button className="text-[12px] text-[var(--gray-500)] hover:text-[var(--primary)]">{t('common.viewAll')}</button>}
+            right={
+              <button
+                type="button"
+                onClick={onJumpToSchedule}
+                className="text-[12px] text-[var(--gray-500)] hover:text-[var(--primary)]"
+              >
+                {t('common.viewAll')}
+              </button>
+            }
           />
           <div className="px-[18px] pt-1 pb-[18px]">
             {stats === null ? (
@@ -259,7 +322,7 @@ export function DashboardScreen({
         </Card>
       </div>
 
-      {/* 30-day chart */}
+      {/* 30-day chart placeholder — data series not yet exposed by dashboard API */}
       <Card>
         <CardHeader
           title={t('dash.last30Days')}
@@ -281,8 +344,15 @@ export function DashboardScreen({
           }
         />
         <div className="px-[18px] pb-[18px] pt-1">
-          <div className="flex h-[248px] items-center justify-center text-sm text-[var(--gray-400)]">
-            {t('common.empty')}
+          <div className="flex h-[248px] flex-col items-center justify-center gap-2 text-sm text-[var(--gray-400)]">
+            <span>{t('common.empty')}</span>
+            <button
+              type="button"
+              onClick={onJumpToStats}
+              className="text-[12px] text-[var(--primary)] hover:underline"
+            >
+              {t('common.statsDetail')}
+            </button>
           </div>
         </div>
       </Card>
@@ -291,14 +361,12 @@ export function DashboardScreen({
 }
 
 function LiveExamRow({
-  cert,
   name,
   takers,
   started,
   remaining,
   onMonitor,
 }: {
-  cert: CertType;
   name: string;
   takers: number;
   started: string;

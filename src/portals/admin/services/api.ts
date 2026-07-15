@@ -485,9 +485,15 @@ export interface GradingRow {
   certType: CertType;
   level: CertLevel;
   roundNumber: number | null;
+  year?: number | null;
+  scheduleId?: string | null;
   writtenScore: number | null;
+  practicalScore?: number | null;
+  totalScore?: number | null;
   practicalState: PracticalState;
   result: 'pass' | 'fail' | null;
+  /** Parent schedule has resultsAnnouncedAt set. */
+  announced?: boolean;
   dueDate: string;
   daysToDue: number;
   overdue: boolean;
@@ -981,6 +987,21 @@ export const adminApi = {
   getGradingCounts: () => api.get<GradingCounts>('/admin/grading/queue/counts'),
   getGradingDetail: (sessionId: string) =>
     api.get<GradingDetail>(`/admin/grading/sessions/${sessionId}/detail`),
+  publishResults: (sessionIds: string[]) =>
+    api.post<{
+      ok: true;
+      sessionCount: number;
+      scheduleCount: number;
+      newlyAnnounced: number;
+      schedules: {
+        scheduleId: string;
+        certType: string;
+        level: string;
+        year: number;
+        roundNumber: number;
+        alreadyAnnounced: boolean;
+      }[];
+    }>('/admin/results/publish', { sessionIds }),
   aiPrescore: (sessionId: string) =>
     api.post(`/admin/grading/sessions/${sessionId}/ai-prescore`, {}),
   saveExpertScore: (

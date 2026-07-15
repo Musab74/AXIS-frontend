@@ -94,7 +94,13 @@ function AdminShell() {
   const renderContent = () => {
     switch (activeId) {
       case 'dashboard':
-        return <DashboardScreen onJumpToMonitoring={() => handleNavigate('monitoring')} />;
+        return (
+          <DashboardScreen
+            onJumpToMonitoring={() => handleNavigate('monitoring')}
+            onJumpToStats={() => handleNavigate('stats')}
+            onJumpToSchedule={() => handleNavigate('schedule')}
+          />
+        );
       case 'monitoring':
         return <MonitoringPage />;
       case 'schedule':
