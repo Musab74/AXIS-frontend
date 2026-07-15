@@ -61,6 +61,15 @@ export function NotificationBell({ onNavigate: _onNavigate }: NotificationBellPr
       return;
     }
 
+    const sessionId =
+      typeof item.meta?.sessionId === 'string' ? item.meta.sessionId : null;
+    if (pageId === 'monitoring' && sessionId) {
+      navigate(
+        `${adminPathForPage('monitoring')}?sessionId=${encodeURIComponent(sessionId)}`,
+      );
+      return;
+    }
+
     navigate(adminPathForPage(pageId));
   };
 

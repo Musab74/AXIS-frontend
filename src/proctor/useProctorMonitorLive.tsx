@@ -215,7 +215,7 @@ export function useProctorMonitorLive(opts: Options): {
     // interval halves the latency on every gaze / face-count signal.
     localDetectMs = 100,
     aiReviewMs = 10_000,
-    thumbMs = 3_000,
+    thumbMs = 5_000,
     modelUrl = '/models/face-api',
     onVerdictFired,
     onAiVerdict,

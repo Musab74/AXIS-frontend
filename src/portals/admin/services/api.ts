@@ -634,6 +634,12 @@ export interface LiveSessionRow {
   status: LiveStatus;
   /** Epoch-ms of the last server-observed activity. null = never seen. */
   lastSeenAt: number | null;
+  /** Webcam thumb received within the freshness window. */
+  webcamOnline: boolean;
+  /** Screen-share thumb received within the freshness window. */
+  screenOnline: boolean;
+  webcamLastAt: number | null;
+  screenLastAt: number | null;
 }
 
 export interface LiveSummary {

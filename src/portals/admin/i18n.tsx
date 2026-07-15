@@ -327,6 +327,8 @@ const dict: Dict = {
   "mon.detail.line": { ko: "AXIS L2 · 세션 {id} · 시작 14:00 · 경과 00:45:12 · 경고 {n}회", en: "AXIS L2 · Session {id} · Started 14:00 · Elapsed 00:45:12 · {n} warnings" },
   "mon.webcam": { ko: "웹캠", en: "Webcam" },
   "mon.screen": { ko: "화면 캡처", en: "Screen capture" },
+  "mon.media.on": { ko: "ON", en: "ON" },
+  "mon.media.off": { ko: "OFF", en: "OFF" },
   "mon.webcamEmpty": { ko: "응시자 웹캠 신호 대기 중…", en: "Waiting for candidate webcam…" },
   "mon.screenEmpty": { ko: "화면 공유 신호 대기 중…", en: "Waiting for screen share…" },
   "mon.timeline": { ko: "ProctorLog 타임라인", en: "ProctorLog Timeline" },

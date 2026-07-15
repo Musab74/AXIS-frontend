@@ -112,7 +112,7 @@ export function useScreenCaptureMonitor(opts: Options): {
   const {
     enabled,
     sessionId,
-    thumbMs = 3_000,
+    thumbMs = 5_000,
     targetWidth = 480,
     quality = 0.7,
     evidenceMaxWidth = 1600,

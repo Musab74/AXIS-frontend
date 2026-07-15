@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   AlertTriangle,
   WifiOff,
@@ -32,6 +33,12 @@ interface MonitorFramePayload {
   ts: number;
 }
 
+interface MediaPulsePayload {
+  sessionId: string;
+  channel: 'webcam' | 'screen';
+  ts: number;
+}
+
 interface FrameState {
   src: string;
   ts: number;
@@ -46,6 +53,7 @@ const POLL_FALLBACK_MS = 10_000;
  * can't blink the roster out and back in.
  */
 const LIVE_KEEP_MS = POLL_FALLBACK_MS * 2;
+const MEDIA_FRESH_MS = 15_000;
 
 interface FeedItem {
   id: string;
@@ -53,6 +61,7 @@ interface FeedItem {
   level: 'HIGH' | 'MEDIUM' | 'INFO';
   who: string;
   msg: string;
+  sessionId: string | null;
 }
 
 const FEED_MAX = 30;
@@ -122,6 +131,7 @@ function reconcileLive(
 
 export function MonitoringScreen() {
   const { t } = useI18n();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [examinees, setExaminees] = useState<LiveSessionRow[] | null>(null);
   // Mirror of `examinees` so the poll can reconcile against the latest
   // WS-updated list without adding it to the effect's dependency array.
@@ -131,7 +141,9 @@ export function MonitoringScreen() {
   // poll snapshot is merely lagging on, so live rows don't blink.
   const lastWsAtRef = useRef<Map<string, number>>(new Map());
   const [summary, setSummary] = useState<LiveSummary | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(
+    () => searchParams.get('sessionId'),
+  );
   const [detail, setDetail] = useState<LiveDetail | null>(null);
   /**
    * Map of `eventId → signed-url AiEvidenceItem` for the currently selected
@@ -163,7 +175,12 @@ export function MonitoringScreen() {
     selectedRow?.status !== 'terminated' &&
     selectedRow?.status !== 'submitted';
 
-  const pushFeed = (who: string, msg: string, level: FeedItem['level'] = 'INFO') => {
+  const pushFeed = (
+    who: string,
+    msg: string,
+    level: FeedItem['level'] = 'INFO',
+    sessionId: string | null = null,
+  ) => {
     feedIdRef.current += 1;
     setFeed((prev) => [
       {
@@ -172,9 +189,22 @@ export function MonitoringScreen() {
         level,
         who,
         msg,
+        sessionId,
       },
       ...prev,
     ].slice(0, FEED_MAX));
+  };
+
+  const jumpToSession = (sessionId: string) => {
+    setSelectedId(sessionId);
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.set('sessionId', sessionId);
+        return next;
+      },
+      { replace: true },
+    );
   };
 
   const refreshDetail = async (sessionId: string) => {
@@ -234,6 +264,12 @@ export function MonitoringScreen() {
     };
   }, []);
 
+  // Deep-link from notification bell / feed: ?sessionId=…
+  useEffect(() => {
+    const deepLink = searchParams.get('sessionId');
+    if (deepLink) setSelectedId(deepLink);
+  }, [searchParams]);
+
   // WS subscriptions
   useEffect(() => {
     const sock = getAdminSocket();
@@ -270,19 +306,80 @@ export function MonitoringScreen() {
           warnings: p.warnings,
           status: p.status,
           lastSeenAt: isAlive ? Date.now() : (idx >= 0 ? list[idx].lastSeenAt : null),
+          webcamOnline: idx >= 0 ? list[idx].webcamOnline : false,
+          screenOnline: idx >= 0 ? list[idx].screenOnline : false,
+          webcamLastAt: idx >= 0 ? list[idx].webcamLastAt : null,
+          screenLastAt: idx >= 0 ? list[idx].screenLastAt : null,
         };
         if (idx >= 0) list[idx] = next; else list.unshift(next);
         return list;
       });
     };
-    const onAlert = (p: { sessionId: string; level: 'HIGH' | 'MEDIUM' | 'INFO'; message: string; ts: number }) => {
+    const onAlert = (p: {
+      sessionId: string;
+      level: 'HIGH' | 'MEDIUM' | 'INFO';
+      message: string;
+      ts: number;
+      candidateName?: string;
+    }) => {
+      const who =
+        p.candidateName ||
+        examineesRef.current?.find((r) => r.sessionId === p.sessionId)?.candidateName ||
+        p.sessionId.slice(-8);
       const id = `evt-${++feedIdRef.current}`;
       setFeed((cur) => [
-        { id, time: fmtTime(new Date(p.ts)), level: p.level, who: p.sessionId, msg: p.message },
+        {
+          id,
+          time: fmtTime(new Date(p.ts)),
+          level: p.level,
+          who,
+          msg: p.message,
+          sessionId: p.sessionId,
+        },
         ...cur,
       ].slice(0, FEED_MAX));
+      // Jump on violations (not INFO network noise).
+      if (p.level === 'HIGH' || p.level === 'MEDIUM') {
+        setSelectedId(p.sessionId);
+        setSearchParams(
+          (prev) => {
+            const next = new URLSearchParams(prev);
+            next.set('sessionId', p.sessionId);
+            return next;
+          },
+          { replace: true },
+        );
+      }
     };
     const onLiveStatus = (p: LiveSummary) => setSummary(p);
+    const applyMediaPulse = (sessionId: string, channel: 'webcam' | 'screen', ts: number) => {
+      lastWsAtRef.current.set(sessionId, Date.now());
+      setExaminees((cur) => {
+        if (!cur) return cur;
+        const idx = cur.findIndex((r) => r.sessionId === sessionId);
+        if (idx < 0) return cur;
+        const row = cur[idx];
+        const recoveredStatus: LiveStatus =
+          row.status === 'disconnected'
+            ? row.warnings >= 3
+              ? 'danger'
+              : row.warnings >= 1
+                ? 'warning'
+                : 'normal'
+            : row.status;
+        const next: LiveSessionRow = {
+          ...row,
+          lastSeenAt: Date.now(),
+          status: recoveredStatus,
+          ...(channel === 'webcam'
+            ? { webcamOnline: true, webcamLastAt: ts }
+            : { screenOnline: true, screenLastAt: ts }),
+        };
+        const list = [...cur];
+        list[idx] = next;
+        return list;
+      });
+    };
     const bumpLastSeen = (sessionId: string) => {
       lastWsAtRef.current.set(sessionId, Date.now());
       setExaminees((cur) => {
@@ -309,6 +406,7 @@ export function MonitoringScreen() {
     };
     const onWebcamFrame = (p: MonitorFramePayload) => {
       bumpLastSeen(p.sessionId);
+      applyMediaPulse(p.sessionId, 'webcam', p.ts);
       setWebcamFrame((cur) => {
         if (cur && cur.ts >= p.ts) return cur;
         return { src: `data:image/jpeg;base64,${p.imageBase64}`, ts: p.ts };
@@ -316,16 +414,21 @@ export function MonitoringScreen() {
     };
     const onScreenFrame = (p: MonitorFramePayload) => {
       bumpLastSeen(p.sessionId);
+      applyMediaPulse(p.sessionId, 'screen', p.ts);
       setScreenFrame((cur) => {
         if (cur && cur.ts >= p.ts) return cur;
         return { src: `data:image/jpeg;base64,${p.imageBase64}`, ts: p.ts };
       });
+    };
+    const onMediaPulse = (p: MediaPulsePayload) => {
+      applyMediaPulse(p.sessionId, p.channel, p.ts);
     };
     sock.on('exam:session-update', onSessionUpdate);
     sock.on('exam:alert', onAlert);
     sock.on('exam:live-status', onLiveStatus);
     sock.on('monitor:webcam-frame', onWebcamFrame);
     sock.on('monitor:screen-frame', onScreenFrame);
+    sock.on('monitor:media-pulse', onMediaPulse);
     return () => {
       sock.off('connect', onConnect);
       sock.off('disconnect', onDisconnect);
@@ -334,6 +437,7 @@ export function MonitoringScreen() {
       sock.off('exam:live-status', onLiveStatus);
       sock.off('monitor:webcam-frame', onWebcamFrame);
       sock.off('monitor:screen-frame', onScreenFrame);
+      sock.off('monitor:media-pulse', onMediaPulse);
     };
   }, []);
 
@@ -517,7 +621,7 @@ export function MonitoringScreen() {
                 return (
                   <li key={e.sessionId}>
                     <button
-                      onClick={() => setSelectedId(e.sessionId)}
+                      onClick={() => jumpToSession(e.sessionId)}
                       className={`axis-focus w-full text-left px-2.5 py-2 rounded-lg flex items-center gap-2.5 transition-colors ${
                         active ? 'bg-[var(--blue-50)] ring-1 ring-[var(--blue)]/40' : 'hover:bg-[var(--gray-50)]'
                       } ${isOffline ? 'opacity-60' : ''}`}
@@ -537,6 +641,36 @@ export function MonitoringScreen() {
                         <div className="flex items-center gap-1.5 mt-1">
                           <ProgressBar value={e.progressPct} tone={cfg.bar} className="!h-1 flex-1 min-w-0" />
                           <span className="text-[10px] text-[var(--gray-500)] tabular-nums w-7 text-right">{e.progressPct}%</span>
+                        </div>
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <span
+                            className={[
+                              'inline-flex items-center gap-0.5 text-[10px]',
+                              e.webcamOnline && (e.webcamLastAt == null || Date.now() - e.webcamLastAt < MEDIA_FRESH_MS)
+                                ? 'text-emerald-600'
+                                : 'text-[var(--gray-400)]',
+                            ].join(' ')}
+                            title={t('mon.webcam')}
+                          >
+                            <Camera className="w-2.5 h-2.5" />
+                            {e.webcamOnline && (e.webcamLastAt == null || Date.now() - e.webcamLastAt < MEDIA_FRESH_MS)
+                              ? t('mon.media.on')
+                              : t('mon.media.off')}
+                          </span>
+                          <span
+                            className={[
+                              'inline-flex items-center gap-0.5 text-[10px]',
+                              e.screenOnline && (e.screenLastAt == null || Date.now() - e.screenLastAt < MEDIA_FRESH_MS)
+                                ? 'text-emerald-600'
+                                : 'text-[var(--gray-400)]',
+                            ].join(' ')}
+                            title={t('mon.screen')}
+                          >
+                            <Monitor className="w-2.5 h-2.5" />
+                            {e.screenOnline && (e.screenLastAt == null || Date.now() - e.screenLastAt < MEDIA_FRESH_MS)
+                              ? t('mon.media.on')
+                              : t('mon.media.off')}
+                          </span>
                         </div>
                       </div>
                       {e.warnings > 0 && (
@@ -676,7 +810,7 @@ export function MonitoringScreen() {
                       const msg = window.prompt(t('mon.action.warn'), '');
                       if (msg === null) return;
                       await adminApi.warnMonitorSession(selectedId!, msg.trim() ? { message: msg.trim() } : {});
-                      pushFeed(detail?.candidate.name ?? '—', msg.trim() || t('mon.action.warn'), 'MEDIUM');
+                      pushFeed(detail?.candidate.name ?? '—', msg.trim() || t('mon.action.warn'), 'MEDIUM', selectedId);
                     })
                   }
                 >
@@ -694,6 +828,7 @@ export function MonitoringScreen() {
                         detail?.candidate.name ?? '—',
                         res.data.action === 'resume' ? t('mon.action.resume') : t('mon.action.pause'),
                         'INFO',
+                        selectedId,
                       );
                     })
                   }
@@ -722,7 +857,7 @@ export function MonitoringScreen() {
                         selectedId!,
                         reason.trim() ? { reason: reason.trim() } : {},
                       );
-                      pushFeed(detail?.candidate.name ?? '—', t('mon.action.terminate'), 'HIGH');
+                      pushFeed(detail?.candidate.name ?? '—', t('mon.action.terminate'), 'HIGH', selectedId);
                       await refreshDetail(selectedId!);
                     })
                   }
@@ -749,6 +884,7 @@ export function MonitoringScreen() {
                                 detail?.candidate.name ?? '—',
                                 `+${min} min`,
                                 'INFO',
+                                selectedId,
                               );
                               setExtendOpen(false);
                             })
@@ -787,14 +923,23 @@ export function MonitoringScreen() {
             ) : (
               <ul className="space-y-2 max-h-[620px] overflow-y-auto pr-0.5">
                 {feed.map((f) => (
-                  <li key={f.id} className="p-2.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-border)]">
-                    <div className="flex items-center gap-2 mb-1">
-                      <StatusBadge tone={FEED_TONE[f.level]}>{f.level}</StatusBadge>
-                      <span className="text-[10px] text-[var(--gray-400)] tabular-nums ml-auto font-mono-axis">{f.time}</span>
-                    </div>
-                    <div className="text-sm text-[var(--gray-700)]">
-                      <span className="font-medium text-[var(--gray-900)]">{f.who}</span> · {f.msg}
-                    </div>
+                  <li key={f.id}>
+                    <button
+                      type="button"
+                      onClick={() => f.sessionId && jumpToSession(f.sessionId)}
+                      disabled={!f.sessionId}
+                      className={`w-full text-left p-2.5 rounded-lg bg-[var(--gray-50)] border border-[var(--gray-border)] ${
+                        f.sessionId ? 'hover:bg-[var(--blue-50)] cursor-pointer' : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mb-1">
+                        <StatusBadge tone={FEED_TONE[f.level]}>{f.level}</StatusBadge>
+                        <span className="text-[10px] text-[var(--gray-400)] tabular-nums ml-auto font-mono-axis">{f.time}</span>
+                      </div>
+                      <div className="text-sm text-[var(--gray-700)]">
+                        <span className="font-medium text-[var(--gray-900)]">{f.who}</span> · {f.msg}
+                      </div>
+                    </button>
                   </li>
                 ))}
               </ul>
