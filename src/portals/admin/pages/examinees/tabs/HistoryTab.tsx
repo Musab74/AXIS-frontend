@@ -69,7 +69,17 @@ export function HistoryTab({
                 </Td>
                 <Td className="whitespace-nowrap">
                   <div className="tabular-nums">{fmtKRW(r.latestPayment?.amount)}</div>
-                  <div className="text-[11px] text-slate-400">{r.latestPayment?.status ?? '—'}</div>
+                  <div className="text-[11px] text-slate-400 flex items-center justify-center gap-1 flex-wrap">
+                    <span>{r.latestPayment?.status ?? '—'}</span>
+                    {r.latestPayment?.isDemo && (
+                      <span
+                        className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800"
+                        title={t('reg.pay.demoHint')}
+                      >
+                        {t('reg.pay.demo')}
+                      </span>
+                    )}
+                  </div>
                 </Td>
                 <Td>
                   {r.sessions.length === 0 ? (
@@ -113,6 +123,10 @@ export function HistoryTab({
                       <Button size="sm" variant="danger" onClick={() => onRefund(r)}>
                         {t('exm.history.refund')}
                       </Button>
+                    ) : r.latestPayment?.isDemo && r.status === 'PAID' ? (
+                      <span className="text-[11px] text-amber-700 max-w-[120px] leading-tight">
+                        {t('exm.history.demoNoRefund')}
+                      </span>
                     ) : showNotRefundable ? (
                       <span className="text-[11px] text-slate-400 max-w-[120px] leading-tight">
                         {t('exm.history.notRefundable')}

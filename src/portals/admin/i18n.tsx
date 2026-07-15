@@ -588,6 +588,10 @@ const dict: Dict = {
     ko: "응시 시작 후에는 환불할 수 없습니다",
     en: "Cannot refund after exam started",
   },
+  "exm.history.demoNoRefund": {
+    ko: "데모 결제 — 환불 불가",
+    en: "Demo payment — not refundable",
+  },
 
   "exm.cert.empty": { ko: "발급된 자격증이 없습니다", en: "No certificates issued" },
   "exm.cert.number": { ko: "자격증 번호", en: "Cert number" },
@@ -730,6 +734,14 @@ const dict: Dict = {
   },
   "exm.refund.success": { ko: "환불이 완료되었습니다", en: "Refund completed" },
   "exm.refund.fail": { ko: "환불 처리에 실패했습니다", en: "Refund failed" },
+  "exm.refund.demoBlockedTitle": {
+    ko: "데모 결제는 환불할 수 없습니다",
+    en: "Demo payments cannot be refunded",
+  },
+  "exm.refund.demoBlockedBody": {
+    ko: "이 접수는 테스트(데모) 결제입니다. 실제 PG 금액이 없어 환불 처리 대상이 아닙니다.",
+    en: "This registration used a test (demo) payment. There is no real PG charge to refund.",
+  },
   "exm.refund.tier.FULL": { ko: "정책 100%", en: "Policy 100%" },
   "exm.refund.tier.HALF": { ko: "정책 50%", en: "Policy 50%" },
   "exm.refund.tier.NONE": { ko: "환불 불가 (7일 이내)", en: "No refund (within 7 days)" },
@@ -890,6 +902,11 @@ const dict: Dict = {
   "reg.pay.cancelled": { ko: "취소", en: "Cancelled" },
   "reg.pay.refunded": { ko: "환불완료", en: "Refunded" },
   "reg.pay.partial": { ko: "부분환불", en: "Partial" },
+  "reg.pay.demo": { ko: "데모", en: "Demo" },
+  "reg.pay.demoHint": {
+    ko: "테스트 결제 — 실제 PG 금액이 아닙니다",
+    en: "Test payment — no real PG charge",
+  },
   "reg.method.CARD": { ko: "카드", en: "Card" },
   "reg.method.VBANK": { ko: "가상계좌", en: "Virtual Account" },
   "reg.method.KAKAOPAY": { ko: "카카오페이", en: "KakaoPay" },

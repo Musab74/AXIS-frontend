@@ -69,6 +69,7 @@ export interface RegistrationDto {
     status: string;
     approvedAt: string | null;
     refundAmount: number | null;
+    isDemo?: boolean;
   } | null;
 }
 

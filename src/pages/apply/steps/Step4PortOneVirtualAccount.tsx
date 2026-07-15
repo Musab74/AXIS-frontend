@@ -8,7 +8,6 @@ import { paymentApi, userApi } from '@/services/api';
 import { createOrResumeRegistration, formatRegisterError } from '@/pages/apply/lib/applyRegisterSession';
 import { BankSelectWithLogos } from '@/pages/apply/components/BankSelectWithLogos';
 import {
-  readApplyPaymentDemo,
   writeApplyPaymentDemo,
 } from '@/pages/apply/lib/applyPaymentDemo';
 import { requestPortoneV1Vbank } from '@/pages/apply/lib/requestPortoneV1Vbank';
@@ -98,10 +97,8 @@ export default function Step4PortOneVirtualAccount() {
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
-  const [paymentDemo, setPaymentDemo] = useState(() => readApplyPaymentDemo());
-  const [payMethodChoice, setPayMethodChoice] = useState<'card' | 'va' | 'demo'>(() =>
-    readApplyPaymentDemo() ? 'demo' : 'va',
-  );
+  const [paymentDemo, setPaymentDemo] = useState(false);
+  const [payMethodChoice, setPayMethodChoice] = useState<'card' | 'va' | 'demo'>('card');
 
   const handleSelectPayMethod = (id: 'card' | 'va' | 'demo') => {
     setPayMethodChoice(id);
@@ -109,6 +106,11 @@ export default function Step4PortOneVirtualAccount() {
     setPaymentDemo(demoOn);
     writeApplyPaymentDemo(demoOn);
   };
+
+  // Keep demo flag in sync for return visits / other apply steps.
+  useEffect(() => {
+    writeApplyPaymentDemo(payMethodChoice === 'demo');
+  }, [payMethodChoice]);
 
   const [reqData, setReqData] = useState<PaymentRequestResponse | null>(null);
   const [profile, setProfile] = useState<{
@@ -118,11 +120,22 @@ export default function Step4PortOneVirtualAccount() {
     email?: string;
   }>({});
 
+  const demoPayAvailable = reqData?.testPaymentEnabled === true;
+
   useEffect(() => {
     if (secsLeft <= 0) return;
     const id = setInterval(() => setSecsLeft((s) => Math.max(0, s - 1)), 1000);
     return () => clearInterval(id);
   }, [secsLeft]);
+
+  // Backend may disable test payment (e.g. prod) — drop a stale demo selection.
+  useEffect(() => {
+    if (reqData?.testPaymentEnabled === false && payMethodChoice === 'demo') {
+      setPayMethodChoice('card');
+      setPaymentDemo(false);
+      writeApplyPaymentDemo(false);
+    }
+  }, [reqData?.testPaymentEnabled, payMethodChoice]);
 
   useEffect(() => {
     userApi
@@ -170,11 +183,13 @@ export default function Step4PortOneVirtualAccount() {
     setError('');
     void (async () => {
       try {
-        const res = await paymentApi.request(regId);
+        const prefer =
+          payMethodChoice === 'card' ? 'CARD' : payMethodChoice === 'va' ? 'VBANK' : undefined;
+        const res = await paymentApi.request(regId, prefer);
         if (cancelled) return;
         setReqData(res.data);
-        if (res.data.alreadyIssued && res.data.vbankNum) {
-          setToast('이미 발급된 가상계좌가 있습니다. 아래 정보를 확인해 주세요.');
+        if (prefer === 'VBANK' && res.data.alreadyIssued && res.data.vbankNum) {
+          setToast(t('apply.step4.vaAlreadyIssued' as never));
         }
       } catch (err: unknown) {
         if (cancelled) return;
@@ -197,15 +212,54 @@ export default function Step4PortOneVirtualAccount() {
     return () => {
       cancelled = true;
     };
-  }, [regId, navigate, selectedSchedule, t]);
+  }, [regId, navigate, selectedSchedule, t, payMethodChoice]);
 
   const handleIssue = async () => {
-    if (!reqData || !regId) return;
+    if (!regId) return;
     if (!consent) return;
+
+    if (paymentDemo) {
+      if (!reqData) return;
+      setPaying(true);
+      setError('');
+      try {
+        // Backend flips the registration to PAID (requires TEST_PAYMENT_ENABLED=true
+        // on the server). On prod the endpoint is 404 — we surface that as a clear
+        // error rather than silently falling back to the old preview-only behaviour,
+        // because the old fallback left the registration unpaid and the candidate
+        // couldn't enter the exam.
+        await paymentApi.testConfirm(regId);
+        window.alert('결제가 완료되었습니다.');
+        navigate('/mypage', { replace: true });
+      } catch (e: unknown) {
+        if (isAxiosError(e) && e.response?.status === 404) {
+          setToast(
+            '테스트 결제는 이 환경에서 비활성화되어 있습니다. (TEST_PAYMENT_ENABLED 미설정)',
+          );
+        } else if (isAxiosError(e) && e.response?.status === 401) {
+          navigate('/login', { replace: true, state: { from: '/apply' } });
+          return;
+        } else if (isAxiosError(e) && e.response?.data?.message === 'SESSION_EXPIRED') {
+          setError(t('apply.step4.sessionExpired' as never));
+        } else {
+          const msg = isAxiosError(e) ? e.response?.data?.message : undefined;
+          setToast(typeof msg === 'string' && msg ? msg : '테스트 결제 처리에 실패했습니다.');
+        }
+        setPaying(false);
+      }
+      return;
+    }
+
+    if (!reqData) return;
     const needBank = payMethodChoice === 'va' && !reqData.alreadyIssued;
     if (needBank && !bankCode) return;
 
-    if (reqData.alreadyIssued && reqData.vbankNum && reqData.vbankName) {
+    if (
+      payMethodChoice === 'va' &&
+      reqData.alreadyIssued &&
+      reqData.vbankNum &&
+      reqData.vbankName
+    ) {
       navigate('/apply/complete', {
         replace: false,
         state: {
@@ -220,47 +274,6 @@ export default function Step4PortOneVirtualAccount() {
       return;
     }
 
-    if (paymentDemo) {
-      setPaying(true);
-      setError('');
-      try {
-        // Backend flips the registration to PAID (requires TEST_PAYMENT_ENABLED=true
-        // on the server). On prod the endpoint is 404 — we surface that as a clear
-        // error rather than silently falling back to the old preview-only behaviour,
-        // because the old fallback left the registration unpaid and the candidate
-        // couldn't enter the exam.
-        await paymentApi.testConfirm(regId);
-        window.alert('결제가 완료되었습니다.');
-        navigate('/exam-ready', {
-          replace: true,
-          state: {
-            examInfo: {
-              registrationId: regId,
-              certType: selectedCert,
-              level: selectedLevel,
-              examDate: selectedSchedule?.examDate,
-              examStartTime: selectedSchedule?.examStartTime,
-              venue: selectedSchedule?.venue,
-            },
-          },
-        });
-      } catch (e: unknown) {
-        if (isAxiosError(e) && e.response?.status === 404) {
-          setToast(
-            '테스트 결제는 이 환경에서 비활성화되어 있습니다. (TEST_PAYMENT_ENABLED 미설정)',
-          );
-        } else if (isAxiosError(e) && e.response?.status === 401) {
-          navigate('/login', { replace: true, state: { from: '/apply' } });
-          return;
-        } else {
-          const msg = isAxiosError(e) ? e.response?.data?.message : undefined;
-          setToast(typeof msg === 'string' && msg ? msg : '테스트 결제 처리에 실패했습니다.');
-        }
-        setPaying(false);
-      }
-      return;
-    }
-
     setPaying(true);
     setError('');
 
@@ -271,11 +284,17 @@ export default function Step4PortOneVirtualAccount() {
     };
 
     const isV1 = reqData.portoneVersion === 'v1';
+    const useCard = payMethodChoice === 'card';
 
     try {
       let paymentIdForConfirm: string;
 
       if (isV1) {
+        if (useCard) {
+          setToast(t('apply.step4.cardNeedsV2' as never));
+          setPaying(false);
+          return;
+        }
         const impCode = reqData.impCode?.trim();
         if (!impCode) {
           setToast('결제 설정 오류(imp_code). 고객센터로 문의해 주세요.');
@@ -300,37 +319,61 @@ export default function Step4PortOneVirtualAccount() {
           (import.meta.env.VITE_PORTONE_CHANNEL_KEY as string | undefined)?.trim() ||
           reqData.channelKey;
 
-        // SDK typings incorrectly require `alipayPlus` on PaymentRequestUnion, but
-        // PortOne rejects VA issuance if any other method option object is present:
-        // "가상계좌 발급 시 virtualAccount 옵션만 허용됩니다."
-        const res = await requestPayment({
-          storeId: storeId as never,
-          channelKey: channelKey as never,
-          paymentId: reqData.merchantId,
-          orderName: reqData.orderName as never,
-          totalAmount: reqData.totalAmount as never,
-          currency: reqData.currency,
-          payMethod: PaymentPayMethod.VIRTUAL_ACCOUNT,
-          customer: {
-            fullName: customer.fullName,
-            email: customer.email || undefined,
-            phoneNumber: customer.phoneNumber || undefined,
-          },
-          virtualAccount: {
-            bankCode: bankCode as never,
-            accountExpiry: { validHours: 24 },
-          },
-        } as unknown as Parameters<typeof requestPayment>[0]);
+        // SDK typings incorrectly require extra method option objects on the union.
+        // PortOne rejects VA if any non-VA option is present; CARD must omit virtualAccount.
+        const res = await requestPayment(
+          (useCard
+            ? {
+                storeId,
+                channelKey,
+                paymentId: reqData.merchantId,
+                orderName: reqData.orderName,
+                totalAmount: reqData.totalAmount,
+                currency: reqData.currency,
+                payMethod: PaymentPayMethod.CARD,
+                customer: {
+                  fullName: customer.fullName,
+                  email: customer.email || undefined,
+                  phoneNumber: customer.phoneNumber || undefined,
+                },
+              }
+            : {
+                storeId,
+                channelKey,
+                paymentId: reqData.merchantId,
+                orderName: reqData.orderName,
+                totalAmount: reqData.totalAmount,
+                currency: reqData.currency,
+                payMethod: PaymentPayMethod.VIRTUAL_ACCOUNT,
+                customer: {
+                  fullName: customer.fullName,
+                  email: customer.email || undefined,
+                  phoneNumber: customer.phoneNumber || undefined,
+                },
+                virtualAccount: {
+                  bankCode,
+                  accountExpiry: { validHours: 24 },
+                },
+              }) as unknown as Parameters<typeof requestPayment>[0],
+        );
 
         if (!res) {
-          setError('가상계좌 발급에 실패했습니다. 다시 시도해 주세요.');
+          setError(
+            useCard
+              ? t('apply.step4.payFailed' as never)
+              : '가상계좌 발급에 실패했습니다. 다시 시도해 주세요.',
+          );
           setPaying(false);
           return;
         }
 
         if (res.code) {
           console.warn('PortOne requestPayment error', res.message, res.code);
-          setToast(`가상계좌 발급 실패: ${res.message ?? '알 수 없는 오류'}`);
+          setToast(
+            useCard
+              ? `${t('apply.step4.payFailed' as never)}: ${res.message ?? ''}`.trim()
+              : `가상계좌 발급 실패: ${res.message ?? '알 수 없는 오류'}`,
+          );
           setPaying(false);
           return;
         }
@@ -344,7 +387,7 @@ export default function Step4PortOneVirtualAccount() {
 
       const d = confirmRes.data;
       if (d.status === 'PAID') {
-        window.alert('결제가 완료되었습니다.');
+        window.alert(t('apply.step4.payOk' as never));
         navigate('/mypage', { replace: true });
         return;
       }
@@ -471,9 +514,11 @@ export default function Step4PortOneVirtualAccount() {
 
       <div className="mb-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         {([
-          { id: 'card' as const, label: '신용카드' },
-          { id: 'va' as const, label: '무통장입금' },
-          { id: 'demo' as const, label: t('apply.step4.testUserToggle' as never) },
+          { id: 'card' as const, label: t('apply.step4.method.card' as never) },
+          { id: 'va' as const, label: t('apply.kcp.method.va' as never) },
+          ...(demoPayAvailable
+            ? [{ id: 'demo' as const, label: t('apply.step4.testUserToggle' as never) }]
+            : []),
         ]).map((opt) => {
           const selected = payMethodChoice === opt.id;
           return (
@@ -494,6 +539,12 @@ export default function Step4PortOneVirtualAccount() {
           );
         })}
       </div>
+
+      {payMethodChoice === 'card' && (
+        <InfoCallout tone="blue" className="mb-4">
+          <p>{t('apply.step4.cardRefundHint' as never)}</p>
+        </InfoCallout>
+      )}
 
       {payMethodChoice === 'demo' && (
         <div
@@ -639,7 +690,7 @@ export default function Step4PortOneVirtualAccount() {
                 paying ||
                 !consent ||
                 !!error ||
-                (payMethodChoice === 'va' && !reqData.alreadyIssued && !bankCode)
+                (payMethodChoice === 'va' && !!reqData && !reqData.alreadyIssued && !bankCode)
               }
               className="w-full sm:flex-1 h-12 rounded-xl text-[14px] lg:text-[15px] font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
               style={{ background: ACCENT }}
@@ -647,12 +698,14 @@ export default function Step4PortOneVirtualAccount() {
               {paying ? (
                 <>
                   <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  가상계좌 발급 중...
+                  {payMethodChoice === 'va'
+                    ? t('apply.step4.issuingVa' as never)
+                    : t('apply.step4.processing' as never)}
                 </>
-              ) : reqData?.alreadyIssued ? (
-                <>가상계좌 정보 확인하기</>
+              ) : payMethodChoice === 'va' && reqData?.alreadyIssued ? (
+                <>{t('apply.step4.viewVa' as never)}</>
               ) : (
-                <>결제하기</>
+                <>{t('apply.step4.payCta' as never)}</>
               )}
             </button>
           </div>

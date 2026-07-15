@@ -429,6 +429,8 @@ export type PaymentRequestResponse = {
   customerPhone: string;
   customer?: { fullName: string; email: string; phoneNumber: string };
   registrationNumber: string | null;
+  /** Backend TEST_PAYMENT_ENABLED — when false, hide the demo pay method. */
+  testPaymentEnabled?: boolean;
   alreadyIssued?: boolean;
   vbankName?: string;
   vbankNum?: string;

@@ -283,11 +283,20 @@ export default function RegistrationsPage() {
                     </Td>
                     <Td className="tabular-nums">{fmtDate(r.registrationCreatedAt)}</Td>
                     <Td align="right" className="tabular-nums" strong>
-                      {fmtKRW(pay?.amount, t)}
+                      <div>{fmtKRW(pay?.amount, t)}</div>
+                      {pay?.isDemo && (
+                        <div
+                          className="mt-0.5 inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800"
+                          title={t('reg.pay.demoHint')}
+                        >
+                          {t('reg.pay.demo')}
+                        </div>
+                      )}
                     </Td>
                     <Td>{methodLabel(pay?.method ?? null, t)}</Td>
                     <Td className={tone.tone === 'red' ? 'text-[var(--red)]' : tone.tone === 'blue' ? 'text-[var(--blue)]' : tone.tone === 'orange' ? 'text-[var(--orange)]' : tone.tone === 'green' ? 'text-[var(--green)]' : 'text-[var(--gray-600)]'}>
                       {tone.label}
+                      {pay?.isDemo ? ` · ${t('reg.pay.demo')}` : ''}
                     </Td>
                     <Td align="right">
                       {r.refundable && (
@@ -298,6 +307,9 @@ export default function RegistrationsPage() {
                         >
                           {t('common.refund')}
                         </Button>
+                      )}
+                      {!r.refundable && pay?.isDemo && r.registrationStatus === 'PAID' && (
+                        <span className="text-[11px] text-amber-700">{t('exm.history.demoNoRefund')}</span>
                       )}
                     </Td>
                   </tr>

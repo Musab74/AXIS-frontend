@@ -100,7 +100,11 @@ export function ReceiptModal({
           />
           <PrintField
             label={t('mypage.receipt.method' as never)}
-            value={reg.latestPayment?.method ?? '—'}
+            value={
+              reg.latestPayment?.isDemo
+                ? `${reg.latestPayment?.method ?? '—'} (${t('mypage.receipt.demo' as never)})`
+                : (reg.latestPayment?.method ?? '—')
+            }
           />
           <PrintField
             label={t('mypage.receipt.paidAt' as never)}

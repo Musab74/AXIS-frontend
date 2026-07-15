@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { isAxiosError } from 'axios';
 import { ClipboardCheck, FileText, Megaphone, MessageCircle, ScrollText } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { InfoCallout } from '@/components/InfoCallout';
@@ -32,21 +33,28 @@ function registrationStatusView(
   t: ReturnType<typeof useI18n>['t'],
 ): { statusText: string; statusCls: string } {
   const deadlineExpired = r.examDeadlineExpired;
+  const demoSuffix = r.latestPayment?.isDemo
+    ? ` · ${t('sec.registrations.status.demo' as never)}`
+    : '';
   if (r.status === 'PAID' && deadlineExpired && r.examDeadline) {
     return {
-      statusText: t('sec.registrations.status.paidExpired' as never, { date: formatExamDate(r.examDeadline) }),
+      statusText:
+        t('sec.registrations.status.paidExpired' as never, { date: formatExamDate(r.examDeadline) }) +
+        demoSuffix,
       statusCls: 'text-status-danger font-semibold',
     };
   }
   if (r.status === 'PAID' && r.examDeadline) {
     return {
-      statusText: t('sec.registrations.status.paidUntil' as never, { date: formatExamDate(r.examDeadline) }),
+      statusText:
+        t('sec.registrations.status.paidUntil' as never, { date: formatExamDate(r.examDeadline) }) +
+        demoSuffix,
       statusCls: 'font-medium',
     };
   }
   if (r.status === 'PAID') {
     return {
-      statusText: t('sec.registrations.status.paid' as never),
+      statusText: t('sec.registrations.status.paid' as never) + demoSuffix,
       statusCls: 'text-ink font-semibold text-[14px]',
     };
   }
@@ -177,11 +185,23 @@ function RegistrationsSection({
   const [gateReg, setGateReg] = useState<RegistrationDto | null>(null);
 
   const handleCancel = async (id: string) => {
-    if (!confirm(t('sec.registrations.confirmCancel' as never))) return;
+    const reg = data.registrations.find((x) => x.id === id);
+    const confirmMsg =
+      reg?.status === 'PAID' && !reg.latestPayment?.isDemo
+        ? t('sec.registrations.confirmCancelRefund' as never)
+        : t('sec.registrations.confirmCancel' as never);
+    if (!confirm(confirmMsg)) return;
     setBusyId(id);
     try {
       await onCancel(id);
       onRefresh();
+    } catch (e: unknown) {
+      const msg = isAxiosError(e) ? e.response?.data?.message : undefined;
+      window.alert(
+        typeof msg === 'string' && msg
+          ? msg
+          : t('sec.registrations.cancelFail' as never),
+      );
     } finally {
       setBusyId(null);
     }
@@ -274,6 +294,18 @@ function RegistrationsSection({
 
                         {r.status === 'PAID' && (
                           <>
+                            <Btn
+                              variant="danger"
+                              className="btn-sm"
+                              onClick={() => handleCancel(r.id)}
+                              disabled={busyId === r.id}
+                            >
+                              {busyId === r.id
+                                ? t('sec.registrations.act.cancelling' as never)
+                                : r.latestPayment?.isDemo
+                                  ? t('sec.registrations.act.cancel' as never)
+                                  : t('sec.registrations.act.cancelRefund' as never)}
+                            </Btn>
                             <KebabMenu
                               items={[
                                 { label: t('sec.registrations.act.receiptView' as never), onClick: () => setReceiptReg(r) },
@@ -344,6 +376,7 @@ function RegistrationsSection({
                   </div>
                 </div>
                 {((r.status === 'PAID' && !deadlineExpired) ||
+                  r.status === 'PAID' ||
                   r.status === 'PENDING_PAYMENT' ||
                   r.status === 'CANCELLED' ||
                   r.status === 'REFUNDED') && (
@@ -360,6 +393,20 @@ function RegistrationsSection({
                         }
                       >
                         {t('mypage.act.printVoucher' as never)}
+                      </Btn>
+                    )}
+                    {r.status === 'PAID' && (
+                      <Btn
+                        variant="danger"
+                        className="w-full min-h-[44px]"
+                        onClick={() => handleCancel(r.id)}
+                        disabled={busyId === r.id}
+                      >
+                        {busyId === r.id
+                          ? t('sec.registrations.act.cancelling' as never)
+                          : r.latestPayment?.isDemo
+                            ? t('sec.registrations.act.cancel' as never)
+                            : t('sec.registrations.act.cancelRefund' as never)}
                       </Btn>
                     )}
                     {r.status === 'PENDING_PAYMENT' && (

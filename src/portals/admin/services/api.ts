@@ -206,6 +206,8 @@ export interface ExamineeListPayment {
   method: PaymentMethod | null;
   approvedAt: string | null;
   refundAmount: number | null;
+  /** Test-confirm / DEMO- paymentKey — no real PG money; not refundable. */
+  isDemo?: boolean;
 }
 
 export interface ExamineeListSession {
