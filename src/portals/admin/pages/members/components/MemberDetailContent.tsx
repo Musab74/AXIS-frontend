@@ -14,8 +14,16 @@ import { CertTab } from '../../examinees/tabs/CertTab';
 import { ExamsTab } from '../tabs/ExamsTab';
 import { ActivityTab } from '../tabs/ActivityTab';
 import { MemberPenaltiesTab } from '../tabs/MemberPenaltiesTab';
+import { IdentityTab } from '../tabs/IdentityTab';
 
-export type MemberDetailTab = 'profile' | 'exams' | 'payments' | 'cert' | 'activity' | 'penalty';
+export type MemberDetailTab =
+  | 'profile'
+  | 'identity'
+  | 'exams'
+  | 'payments'
+  | 'cert'
+  | 'activity'
+  | 'penalty';
 
 interface MemberDetailContentProps {
   detail: MemberProfile | null;
@@ -69,6 +77,7 @@ export function MemberDetailContent({
   const u = detail.user;
   const tabs: { id: MemberDetailTab; key: string }[] = [
     { id: 'profile', key: 'mem.tab.profile' },
+    { id: 'identity', key: 'mem.tab.identity' },
     { id: 'exams', key: 'mem.tab.exams' },
     { id: 'payments', key: 'mem.tab.payments' },
     { id: 'cert', key: 'exm.tab.cert' },
@@ -111,6 +120,7 @@ export function MemberDetailContent({
 
       <div className="pt-5">
         {activeTab === 'profile' && <ProfileTab detail={detail} />}
+        {activeTab === 'identity' && <IdentityTab detail={detail} />}
         {activeTab === 'exams' && <ExamsTab detail={detail} onReload={onReload} />}
         {activeTab === 'payments' && (
           <HistoryTab detail={detail} onRefund={onRefund} onViewEvidence={() => undefined} />

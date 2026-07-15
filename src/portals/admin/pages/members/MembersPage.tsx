@@ -187,6 +187,7 @@ export default function MembersPage() {
               <Th className="text-left!">{t('mem.col.phone')}</Th>
               <Th>{t('mem.col.status')}</Th>
               <Th>{t('mem.col.nice')}</Th>
+              <Th>{t('mem.col.linked')}</Th>
               <Th>{t('mem.col.penalty')}</Th>
               <Th>{t('mem.col.joined')}</Th>
               <Th>{t('mem.col.lastLogin')}</Th>
@@ -195,13 +196,13 @@ export default function MembersPage() {
           <tbody>
             {!list ? (
               <tr>
-                <Td colSpan={9} className="text-center py-10 text-slate-400">
+                <Td colSpan={10} className="text-center py-10 text-slate-400">
                   {t('common.loading')}
                 </Td>
               </tr>
             ) : list.items.length === 0 ? (
               <tr>
-                <Td colSpan={9} className="text-center py-10 text-slate-400">
+                <Td colSpan={10} className="text-center py-10 text-slate-400">
                   {t('common.empty')}
                 </Td>
               </tr>
@@ -222,6 +223,14 @@ export default function MembersPage() {
                     <AccountStatusBadge status={row.accountStatus} />
                   </Td>
                   <Td>{fmtNice(row.niceVerified, t)}</Td>
+                  <Td>
+                    <span
+                      className="text-xs text-emerald-700"
+                      title={t('mem.col.linkedHint')}
+                    >
+                      ✓
+                    </span>
+                  </Td>
                   <Td className="tabular-nums">{row.activePenaltyCount}</Td>
                   <Td muted className="whitespace-nowrap tabular-nums">{fmtDate(row.createdAt)}</Td>
                   <Td muted className="whitespace-nowrap tabular-nums text-xs">

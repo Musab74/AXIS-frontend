@@ -340,6 +340,45 @@ export interface UserRoleDetail {
 export interface MemberProfile extends ExamineeDetail {
   roles: AdminRole[];
   rolesDetail: UserRoleDetail[];
+  accountLinkage: AccountLinkage;
+  identityHistory: MemberIdentityHistory;
+}
+
+export interface AccountLinkage {
+  integrated: true;
+  portals: ['axisexam.com', 'cbt.axisexam.com'];
+  niceVerified: boolean;
+  carrierIdentityBound: boolean;
+  hasReferenceFace: boolean;
+  referenceFaceUpdatedAt: string | null;
+  idImageStored: false;
+}
+
+export interface IdentityVerificationAttemptSummary {
+  id: string;
+  examSessionId: string | null;
+  verdict: string;
+  reasons: string[];
+  idType: string;
+  ocrConfidence: number;
+  nameMatched: boolean;
+  birthDateMatched: boolean | null;
+  faceDecision: string;
+  faceSimilarity: number;
+  createdAt: string;
+}
+
+export interface CarrierVerificationEntry {
+  authType: string;
+  status: string;
+  ipAddress: string | null;
+  createdAt: string;
+  completedAt: string | null;
+}
+
+export interface MemberIdentityHistory {
+  carrier: CarrierVerificationEntry[];
+  attempts: IdentityVerificationAttemptSummary[];
 }
 
 export interface UserActivity {

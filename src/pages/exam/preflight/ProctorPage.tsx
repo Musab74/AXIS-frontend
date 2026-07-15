@@ -409,7 +409,9 @@ export default function ProctorPage() {
       try {
         const idFile = new File([idImg], 'id.jpg', { type: 'image/jpeg' });
         const faceFile = new File([faceImg], 'selfie.jpg', { type: 'image/jpeg' });
-        const res = await proctorApi.verify(idFile, faceFile);
+        const res = await proctorApi.verify(idFile, faceFile, {
+          examSessionId: sessionId || undefined,
+        });
         setResult(res.data);
         setStep('RESULT');
       } catch (e: any) {
@@ -417,7 +419,7 @@ export default function ProctorPage() {
         setStep('FACE_CAPTURE');
       }
     },
-    [t],
+    [t, sessionId],
   );
 
   useEffect(() => {

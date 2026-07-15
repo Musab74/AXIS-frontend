@@ -436,8 +436,11 @@ export type PaymentRequestResponse = {
 };
 
 export const paymentApi = {
-  request: (registrationId: string) =>
-    api.post<PaymentRequestResponse>('/payment/request', { registrationId }),
+  request: (registrationId: string, payMethod?: 'CARD' | 'VBANK') =>
+    api.post<PaymentRequestResponse>('/payment/request', {
+      registrationId,
+      ...(payMethod ? { payMethod } : {}),
+    }),
   confirm: (body: { paymentId: string; merchantId: string }) =>
     api.post<
       | {
@@ -495,10 +498,11 @@ export interface ProctorEventResult {
 // Proctoring — uses .env AWS Rekognition + Upstage credentials
 export const proctorApi = {
   /** Pre-exam ID + face verify. Multipart: idCard (File) + liveFace (File). */
-  verify: (idCard: File, liveFace: File) => {
+  verify: (idCard: File, liveFace: File, opts?: { examSessionId?: string }) => {
     const fd = new FormData();
     fd.append('idCard', idCard);
     fd.append('liveFace', liveFace);
+    if (opts?.examSessionId) fd.append('examSessionId', opts.examSessionId);
     return api.post('/identity-verification/verify', fd, {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
