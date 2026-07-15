@@ -227,6 +227,10 @@ export default function SignupPage() {
 
   const passwordsMatch = password === passwordConfirm && passwordConfirm.length > 0;
 
+  // Email is required as of the account email gate — the payment receipt and the
+  // exam-deadline warning have nowhere to go without it.
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+
   // Agree all
   const handleAgreeAll = (checked: boolean) => {
     setAgreeAll(checked);
@@ -271,7 +275,7 @@ export default function SignupPage() {
         userId,
         password,
         niceSessionId: niceResult.sessionId,
-        email: email || undefined,
+        email: email.trim().toLowerCase(),
         agreePrivacy,
         agreeTerms,
         agreeMarketing,
@@ -548,10 +552,12 @@ export default function SignupPage() {
                   )}
                 </div>
 
-                {/* Email (optional) */}
+                {/* Email — required: the payment receipt and the exam-deadline
+                    warning are sent here, and the backend rejects a payment for an
+                    account with no address. */}
                 <div className="mb-5">
                   <label htmlFor="email" className="form-label">
-                    {t('signup.email')} <span className="text-[11px] font-normal text-[#8B95B0]">{t('signup.emailOptional')}</span>
+                    {t('signup.email')} <span className="text-[11px] font-normal text-[#DC2626]">*</span>
                   </label>
                   <input
                     id="email"
@@ -559,8 +565,17 @@ export default function SignupPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="example@email.com"
+                    autoComplete="email"
                     className={INPUT_CLASS}
                   />
+                  <p className="mt-1 text-[12px] font-normal text-[#8B95B0] break-keep">
+                    {t('signup.emailHint' as never)}
+                  </p>
+                  {email.length > 0 && !emailValid && (
+                    <p className="mt-1 text-[12px] font-medium text-[#DC2626]">
+                      {t('signup.emailInvalid' as never)}
+                    </p>
+                  )}
                 </div>
 
                 {/* Consent checkboxes */}
@@ -637,9 +652,9 @@ export default function SignupPage() {
 
                 <button
                   type="submit"
-                  disabled={signupLoading || !agreeTerms || !agreePrivacy}
+                  disabled={signupLoading || !agreeTerms || !agreePrivacy || !emailValid}
                   className={`flex h-14 w-full items-center justify-center gap-2 rounded-lg border-none text-[18px] font-semibold text-white ${
-                    signupLoading || !agreeTerms || !agreePrivacy
+                    signupLoading || !agreeTerms || !agreePrivacy || !emailValid
                       ? 'cursor-not-allowed bg-[#8B95B0]'
                       : 'cursor-pointer bg-[#2B7FFF]'
                   }`}

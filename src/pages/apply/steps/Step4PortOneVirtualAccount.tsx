@@ -7,10 +7,6 @@ import { useWizard } from '@/pages/apply/lib/WizardContext';
 import { paymentApi, userApi } from '@/services/api';
 import { createOrResumeRegistration, formatRegisterError } from '@/pages/apply/lib/applyRegisterSession';
 import { BankSelectWithLogos } from '@/pages/apply/components/BankSelectWithLogos';
-import {
-  readApplyPaymentDemo,
-  writeApplyPaymentDemo,
-} from '@/pages/apply/lib/applyPaymentDemo';
 import { requestPortoneV1Vbank } from '@/pages/apply/lib/requestPortoneV1Vbank';
 import type { PaymentRequestResponse } from '@/services/api';
 import { H_CARD, T_BODY, T_META, INK_900, GRAY_500, BORDER, ACCENT } from '@/pages/apply/lib/applyTokens';
@@ -98,17 +94,6 @@ export default function Step4PortOneVirtualAccount() {
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
-  const [paymentDemo, setPaymentDemo] = useState(() => readApplyPaymentDemo());
-  const [payMethodChoice, setPayMethodChoice] = useState<'card' | 'va' | 'demo'>(() =>
-    readApplyPaymentDemo() ? 'demo' : 'va',
-  );
-
-  const handleSelectPayMethod = (id: 'card' | 'va' | 'demo') => {
-    setPayMethodChoice(id);
-    const demoOn = id === 'demo';
-    setPaymentDemo(demoOn);
-    writeApplyPaymentDemo(demoOn);
-  };
 
   const [reqData, setReqData] = useState<PaymentRequestResponse | null>(null);
   const [profile, setProfile] = useState<{
@@ -187,6 +172,11 @@ export default function Step4PortOneVirtualAccount() {
           setError(t('apply.step4.missingL1Doc' as never));
         } else if (msg === 'SESSION_EXPIRED') {
           setError(t('apply.step4.sessionExpired' as never));
+        } else if (msg === 'EMAIL_REQUIRED') {
+          // Backend refuses to take money from an account it cannot mail a receipt
+          // to. Reachable only if Step 3's save was skipped or failed, so send them
+          // back one step to fix it rather than leaving them stuck here.
+          setError(t('apply.step4.emailRequired' as never));
         } else {
           setError(typeof msg === 'string' ? msg : formatRegisterError(err, t('apply.step4.readyFailed' as never)));
         }
@@ -202,8 +192,7 @@ export default function Step4PortOneVirtualAccount() {
   const handleIssue = async () => {
     if (!reqData || !regId) return;
     if (!consent) return;
-    const needBank = payMethodChoice === 'va' && !reqData.alreadyIssued;
-    if (needBank && !bankCode) return;
+    if (!reqData.alreadyIssued && !bankCode) return;
 
     if (reqData.alreadyIssued && reqData.vbankNum && reqData.vbankName) {
       navigate('/apply/complete', {
@@ -217,47 +206,6 @@ export default function Step4PortOneVirtualAccount() {
           registrationId: regId,
         },
       });
-      return;
-    }
-
-    if (paymentDemo) {
-      setPaying(true);
-      setError('');
-      try {
-        // Backend flips the registration to PAID (requires TEST_PAYMENT_ENABLED=true
-        // on the server). On prod the endpoint is 404 — we surface that as a clear
-        // error rather than silently falling back to the old preview-only behaviour,
-        // because the old fallback left the registration unpaid and the candidate
-        // couldn't enter the exam.
-        await paymentApi.testConfirm(regId);
-        window.alert('결제가 완료되었습니다.');
-        navigate('/exam-ready', {
-          replace: true,
-          state: {
-            examInfo: {
-              registrationId: regId,
-              certType: selectedCert,
-              level: selectedLevel,
-              examDate: selectedSchedule?.examDate,
-              examStartTime: selectedSchedule?.examStartTime,
-              venue: selectedSchedule?.venue,
-            },
-          },
-        });
-      } catch (e: unknown) {
-        if (isAxiosError(e) && e.response?.status === 404) {
-          setToast(
-            '테스트 결제는 이 환경에서 비활성화되어 있습니다. (TEST_PAYMENT_ENABLED 미설정)',
-          );
-        } else if (isAxiosError(e) && e.response?.status === 401) {
-          navigate('/login', { replace: true, state: { from: '/apply' } });
-          return;
-        } else {
-          const msg = isAxiosError(e) ? e.response?.data?.message : undefined;
-          setToast(typeof msg === 'string' && msg ? msg : '테스트 결제 처리에 실패했습니다.');
-        }
-        setPaying(false);
-      }
       return;
     }
 
@@ -465,44 +413,17 @@ export default function Step4PortOneVirtualAccount() {
 
       <header className="py-4 flex items-center justify-between gap-3">
           <h3 className={H_CARD} style={{ color: INK_900 }}>
-            결제수단 선택
+            결제수단
           </h3>
       </header>
 
-      <div className="mb-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
-        {([
-          { id: 'card' as const, label: '신용카드' },
-          { id: 'va' as const, label: '무통장입금' },
-          { id: 'demo' as const, label: t('apply.step4.testUserToggle' as never) },
-        ]).map((opt) => {
-          const selected = payMethodChoice === opt.id;
-          return (
-            <button
-              key={opt.id}
-              type="button"
-              onClick={() => handleSelectPayMethod(opt.id)}
-              aria-pressed={selected}
-              className={`w-full sm:w-auto sm:min-w-35 h-12 px-5 rounded-md border ${T_BODY} font-semibold transition-colors cursor-pointer ${
-                selected
-                  ? 'border-[#2563EB] bg-white text-[#2563EB]'
-                  : 'border-[#E5E5E5] bg-white hover:bg-[#F8FAFC]'
-              }`}
-              style={selected ? undefined : { color: INK_900 }}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-
-      {payMethodChoice === 'demo' && (
-        <div
-          className={`mb-4 px-4 py-3 rounded-xl border border-[#FCD34D] bg-[#FFFBEB] ${T_BODY}`}
-          style={{ color: '#92400E' }}
-        >
-          {t('apply.step4.demoBanner' as never)}
+      <div className="mb-4">
+        <div>
+          <FieldRow label="결제수단">
+            <div className={T_BODY} style={{ color: INK_900 }}>무통장입금 (가상계좌)</div>
+          </FieldRow>
         </div>
-      )}
+      </div>
 
       {expired ? (
         <div className="py-10 text-center bg-white border rounded-xl mb-4" style={{ borderColor: BORDER }}>
@@ -517,7 +438,7 @@ export default function Step4PortOneVirtualAccount() {
         </div>
       ) : (
         <>
-          {payMethodChoice === 'va' && !reqData?.alreadyIssued && (
+          {!reqData?.alreadyIssued && (
             <section className="bg-white mb-4">
               <div>
                 <div
@@ -549,8 +470,7 @@ export default function Step4PortOneVirtualAccount() {
             </section>
           )}
 
-          {payMethodChoice === 'va' && (
-            <div>
+          <div>
             <InfoCallout tone="blue" >
               <p>
                 결제 완료 후 발급된 계좌번호로 24시간 이내 이체해 주세요.
@@ -566,8 +486,7 @@ export default function Step4PortOneVirtualAccount() {
                 입금기한 초과 시 접수가 자동으로 취소됩니다.
               </p>
             </InfoCallout>
-            </div>
-          )}
+          </div>
 
           {error && (
             <div className={`mb-4 px-4 py-3 bg-[#FEE2E2] border border-[#FECACA] rounded-xl ${T_BODY} text-status-danger`}>
@@ -639,7 +558,7 @@ export default function Step4PortOneVirtualAccount() {
                 paying ||
                 !consent ||
                 !!error ||
-                (payMethodChoice === 'va' && !reqData.alreadyIssued && !bankCode)
+                (!reqData.alreadyIssued && !bankCode)
               }
               className="w-full sm:flex-1 h-12 rounded-xl text-[14px] lg:text-[15px] font-semibold text-white hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed transition-colors cursor-pointer shadow-sm flex items-center justify-center gap-2"
               style={{ background: ACCENT }}

@@ -449,6 +449,18 @@ export const en = {
   'signup.email': 'Email',
   'signup.emailOptional': '(optional)',
   'signup.emailPh': 'example@email.com',
+  'signup.emailHint': 'Your payment receipt and exam-deadline reminders are sent to this address.',
+  'signup.emailInvalid': 'Please enter a valid email address.',
+
+  // Account email gate — blocking dialog for legacy accounts with no email
+  'emailGate.title': 'Add your email address',
+  'emailGate.body':
+    'We need an email address to send your payment receipt and exam-deadline reminders. Add one to continue.',
+  'emailGate.label': 'Email address',
+  'emailGate.placeholder': 'example@email.com',
+  'emailGate.submit': 'Save',
+  'emailGate.taken': 'That email is already in use.',
+  'emailGate.failed': 'Could not save your email. Please try again.',
   'signup.agreeAll': 'Agree to all',
   'signup.required': '[Required]',
   'signup.optional': '[Optional]',
@@ -806,6 +818,8 @@ export const en = {
   'apply.step3.docDone': 'Document uploaded',
   'apply.step4.missingL1Doc': 'L1 eligibility document required. Please upload it in the previous step.',
   'apply.step4.sessionExpired': 'Your seat hold expired. Please re-register.',
+  'apply.step4.emailRequired':
+    'An email address is required so we can send your payment receipt. Please go back and enter one.',
   'apply.step4.readyFailed': 'Failed to prepare payment. Please try again.',
   'apply.step4.widgetLoadFailed': 'Failed to load the payment widget.',
   'apply.step4.payFailed': 'Payment failed.',
@@ -1214,6 +1228,9 @@ export const en = {
   'apply.s3.phonePlaceholder': '+82 10-0000-0000',
   'apply.s3.email': 'Email Address',
   'apply.s3.emailPlaceholder': 'you@example.com',
+  'apply.s3.emailHint': 'Your payment receipt and exam-deadline reminders are sent to this address.',
+  'apply.s3.emailTaken': 'That email is already used by another account.',
+  'apply.s3.emailSaveFailed': 'Could not save your email. Please try again.',
   'apply.s3.profileHint': 'Pre-filled from your profile. You may edit these fields.',
   'apply.s3.lockedHint':
     'This identity information cannot be edited here. To change it, please contact Support (1:1 inquiry) — only an administrator can update it.',

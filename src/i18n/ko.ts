@@ -449,6 +449,18 @@ export const ko = {
   'signup.email': '이메일',
   'signup.emailOptional': '(선택)',
   'signup.emailPh': 'example@email.com',
+  'signup.emailHint': '결제 영수증과 응시 기한 안내를 이 주소로 보내드립니다.',
+  'signup.emailInvalid': '이메일 형식이 올바르지 않습니다.',
+
+  // 계정 이메일 게이트 — 이메일이 없는 기존 계정에 표시되는 차단 모달
+  'emailGate.title': '이메일 주소를 등록해주세요',
+  'emailGate.body':
+    '결제 영수증과 응시 기한 안내를 보내드리려면 이메일 주소가 필요합니다. 등록 후 서비스를 계속 이용하실 수 있습니다.',
+  'emailGate.label': '이메일 주소',
+  'emailGate.placeholder': 'example@email.com',
+  'emailGate.submit': '등록하기',
+  'emailGate.taken': '이미 사용중인 이메일입니다.',
+  'emailGate.failed': '이메일 등록에 실패했습니다. 다시 시도해주세요.',
   'signup.agreeAll': '전체 동의',
   'signup.required': '[필수]',
   'signup.optional': '[선택]',
@@ -807,6 +819,7 @@ export const ko = {
   'apply.step3.docDone': '서류 업로드 완료',
   'apply.step4.missingL1Doc': 'L1 응시 자격 서류가 필요합니다. 이전 단계에서 서류를 업로드해주세요.',
   'apply.step4.sessionExpired': '좌석 선점 시간이 만료되었습니다. 다시 접수해주세요.',
+  'apply.step4.emailRequired': '결제 영수증 발송을 위해 이메일 주소가 필요합니다. 이전 단계에서 이메일을 입력해주세요.',
   'apply.step4.readyFailed': '결제 준비에 실패했습니다. 다시 시도해주세요.',
   'apply.step4.widgetLoadFailed': '결제 위젯 로드에 실패했습니다.',
   'apply.step4.payFailed': '결제에 실패했습니다.',
@@ -1236,6 +1249,9 @@ export const ko = {
   'apply.s3.phonePlaceholder': '010-0000-0000',
   'apply.s3.email': '이메일',
   'apply.s3.emailPlaceholder': 'you@example.com',
+  'apply.s3.emailHint': '결제 영수증과 응시 기한 안내가 이 주소로 발송됩니다.',
+  'apply.s3.emailTaken': '이미 다른 계정에서 사용중인 이메일입니다.',
+  'apply.s3.emailSaveFailed': '이메일 저장에 실패했습니다. 다시 시도해주세요.',
   'apply.s3.profileHint': '프로필 정보로 자동 입력되었습니다. 필요 시 수정할 수 있습니다.',
   'apply.s3.lockedHint':
     '본인 확인 정보는 접수 화면에서 수정할 수 없습니다. 변경이 필요하면 고객센터 1:1 문의로 요청해 주세요. 관리자 확인 후 변경됩니다.',

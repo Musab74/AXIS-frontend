@@ -1,6 +1,7 @@
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { lazy, Suspense, type ReactElement } from 'react';
 import { SessionSupersededModalHost } from '@/components/SessionSupersededModalHost';
+import { AccountEmailGate } from '@/components/AccountEmailGate';
 import LoginPage from './pages/auth/LoginPage';
 import SignupPage from './pages/auth/SignupPage';
 import ForgotPasswordPage from './pages/auth/ForgotPasswordPage';
@@ -43,6 +44,7 @@ export default function PublicApp() {
   return (
     <BrowserRouter>
       <SessionSupersededModalHost />
+      <AccountEmailGate />
       <TourProvider>
       {/* 모바일/태블릿(lg 미만)에서 한글이 어절 단위로만 줄바꿈되도록 전역 적용.
           word-break: keep-all 은 상속되므로 하위 모든 공개 페이지 텍스트에 반영된다. */}

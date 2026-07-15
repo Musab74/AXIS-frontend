@@ -222,7 +222,7 @@ export const authApi = {
 // User API
 export const userApi = {
   getProfile: () => api.get('/users/profile'),
-  updateProfile: (data: { email?: string }) => api.patch('/users/profile', data),
+  updateProfile: (data: { email: string }) => api.patch('/users/profile', data),
   updatePhone: (data: { niceSessionId: string; phone: string }) =>
     api.patch('/auth/profile-phone', data),
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
@@ -456,16 +456,6 @@ export const paymentApi = {
           registrationId: string;
         }
     >('/payment/confirm', body),
-  /**
-   * Demo/staging only — flips the registration to PAID without going through
-   * PortOne. Backend returns 404 unless TEST_PAYMENT_ENABLED=true, so this is
-   * a no-op (404) on production.
-   */
-  testConfirm: (registrationId: string) =>
-    api.post<{ ok: true; status: 'PAID'; registrationId: string }>(
-      '/payment/test-confirm',
-      { registrationId },
-    ),
 };
 
 export type ProctorEventKind =

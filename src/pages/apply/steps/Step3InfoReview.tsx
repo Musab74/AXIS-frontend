@@ -312,6 +312,14 @@ export default function Step3InfoReview() {
   const [birthDate, setBirthDate] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
+  // The email the server currently holds. This step used to keep the typed email
+  // in local state only and never persist it, so Step 4 re-fetched the profile,
+  // got null back, and handed PortOne no address — the candidate was forced to
+  // type an email that was then thrown away, and no receipt could ever be sent.
+  // We diff against this to avoid a pointless PATCH when nothing changed.
+  const [savedEmail, setSavedEmail] = useState('');
+  const [emailSaving, setEmailSaving] = useState(false);
+  const [emailError, setEmailError] = useState('');
   // Identity fields are locked only when the profile already provides them —
   // an empty field stays editable so an incomplete profile can't block the wizard.
   const [locked, setLocked] = useState({ name: false, birth: false, phone: false });
@@ -358,6 +366,7 @@ export default function Step3InfoReview() {
         setBirthDate(p.birthDate ?? '');
         setPhone(p.phone ?? '');
         setEmail(p.email ?? '');
+        setSavedEmail(p.email ?? '');
         setLocked({ name: !!p.name, birth: !!p.birthDate, phone: !!p.phone });
       })
       .catch(() => {});
@@ -400,7 +409,45 @@ export default function Step3InfoReview() {
 
   const allConsents = consents.every(Boolean);
   const docOk = selectedLevel !== 'L1' || selectedCert !== 'AXIS_C' || (!!docUrl && !!eligibilityType);
-  const canProceed = Boolean(name && birthDate && phone && email && allConsents && docOk);
+  const emailValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+  const canProceed = Boolean(
+    name && birthDate && phone && emailValid && allConsents && docOk && !emailSaving,
+  );
+
+  /**
+   * Persist the email BEFORE advancing to payment. Step 4 re-reads the profile from
+   * the server and PortOne is called with whatever is stored there, so an email that
+   * only ever lived in this component's state never reaches the payment gateway —
+   * and the backend now hard-rejects a payment request for an account with no email
+   * (EMAIL_REQUIRED). Advancing on a failed save would strand the candidate on a
+   * payment screen that cannot succeed, so a failure here blocks the step.
+   */
+  const handleNext = async () => {
+    const next = email.trim().toLowerCase();
+    if (next === savedEmail.trim().toLowerCase()) {
+      nextStep();
+      return;
+    }
+    setEmailSaving(true);
+    setEmailError('');
+    try {
+      await userApi.updateProfile({ email: next });
+      setSavedEmail(next);
+      nextStep();
+    } catch (err: unknown) {
+      const status = isAxiosError(err) ? err.response?.status : undefined;
+      const msg = isAxiosError(err)
+        ? (err.response?.data as { message?: string | string[] } | undefined)?.message
+        : undefined;
+      setEmailError(
+        status === 409
+          ? t('apply.s3.emailTaken' as never)
+          : (Array.isArray(msg) ? msg.join(', ') : msg) || t('apply.s3.emailSaveFailed' as never),
+      );
+    } finally {
+      setEmailSaving(false);
+    }
+  };
 
   return (
     <div>
@@ -454,10 +501,28 @@ export default function Step3InfoReview() {
           <input
             type="email"
             value={email}
-            onChange={(e) => setEmail(e.target.value)}
+            onChange={(e) => {
+              setEmail(e.target.value);
+              setEmailError('');
+            }}
             placeholder={t('apply.s3.emailPlaceholder')}
             className={INPUT_CLASS}
           />
+          {/* The receipt, the exam-deadline warning and the PortOne payment
+              confirmation all go to this address — say so, because it is the only
+              channel the candidate has once they leave this screen. */}
+          <p className={`mt-1.5 ${T_META} text-text-muted break-keep`}>
+            {t('apply.s3.emailHint' as never)}
+          </p>
+          {emailError && (
+            <div
+              role="alert"
+              className={`mt-1.5 flex items-center gap-1.5 ${T_META} text-status-danger`}
+            >
+              <Info className="w-4 h-4 shrink-0" strokeWidth={2.2} />
+              <span>{emailError}</span>
+            </div>
+          )}
         </FieldRow>
       </CardSection>
 
@@ -616,7 +681,7 @@ export default function Step3InfoReview() {
         </div>
       </CardSection>
 
-      <NavButtons onPrev={prevStep} onNext={nextStep} nextDisabled={!canProceed} />
+      <NavButtons onPrev={prevStep} onNext={() => void handleNext()} nextDisabled={!canProceed} />
     </div>
   );
 }
