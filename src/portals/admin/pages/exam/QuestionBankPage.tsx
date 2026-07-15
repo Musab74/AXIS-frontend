@@ -78,14 +78,24 @@ export default function QuestionBankPage() {
   // Filters
   const [certType, setCertType] = useState<CertType | ''>('');
   const [level, setLevel] = useState<CertLevel | ''>('');
-  const [subjectIndex, setSubjectIndex] = useState<number | ''>('');
-  const [search, setSearch] = useState('');
+  /** Composite key certType|level|subjectIndex — avoids index collisions across levels. */
+  const [subjectKey, setSubjectKey] = useState('');
+  const [searchInput, setSearchInput] = useState('');
+  /** Committed search query used for API fetches (Search button / Enter). */
+  const [appliedSearch, setAppliedSearch] = useState('');
   const [page, setPage] = useState(1);
 
   // Data
   const [questions, setQuestions] = useState<QuestionRow[]>([]);
   const [tasks, setTasks] = useState<TaskRow[]>([]);
   const [pagination, setPagination] = useState<ApiPagination | null>(null);
+
+  const subjectIndex = useMemo(() => {
+    if (!subjectKey) return '' as const;
+    const parts = subjectKey.split('|');
+    const idx = Number.parseInt(parts[2] ?? '', 10);
+    return Number.isFinite(idx) ? idx : ('' as const);
+  }, [subjectKey]);
 
   // Expanded rows
   const [expandedId, setExpandedId] = useState<string | null>(null);
@@ -135,29 +145,34 @@ export default function QuestionBankPage() {
           certType: certType || undefined,
           level: level || undefined,
           subjectIndex: subjectIndex !== '' ? subjectIndex : undefined,
-          search: search || undefined,
+          search: appliedSearch || undefined,
           page,
           limit: 15,
         });
         setQuestions(res.data.questions);
+        setTasks([]);
         setPagination(res.data.pagination);
       } else {
         const res = await adminApi.getTasks({
           certType: certType || undefined,
           level: level || undefined,
-          search: search || undefined,
+          search: appliedSearch || undefined,
           page,
           limit: 15,
         });
         setTasks(res.data.tasks);
+        setQuestions([]);
         setPagination(res.data.pagination);
       }
     } catch (err) {
       setError('Failed to load data');
+      setQuestions([]);
+      setTasks([]);
+      setPagination(null);
     } finally {
       setLoading(false);
     }
-  }, [tab, certType, level, subjectIndex, search, page]);
+  }, [tab, certType, level, subjectIndex, appliedSearch, page]);
 
   useEffect(() => {
     loadData();
@@ -165,25 +180,38 @@ export default function QuestionBankPage() {
 
   // Reset filters when tab changes
   const handleTabChange = (newTab: TabType) => {
+    if (newTab === tab) return;
+    setLoading(true);
+    setPagination(null);
+    setQuestions([]);
+    setTasks([]);
+    setError(null);
     setTab(newTab);
     setPage(1);
     setExpandedId(null);
     setCertType('');
     setLevel('');
-    setSubjectIndex('');
-    setSearch('');
+    setSubjectKey('');
+    setSearchInput('');
+    setAppliedSearch('');
   };
 
   const handleSearch = () => {
+    const next = searchInput.trim();
     setPage(1);
-    loadData();
+    setAppliedSearch(next);
+    // If appliedSearch is unchanged, loadData won't re-run — force refresh.
+    if (next === appliedSearch && page === 1) {
+      void loadData();
+    }
   };
 
   const handleClearFilters = () => {
     setCertType('');
     setLevel('');
-    setSubjectIndex('');
-    setSearch('');
+    setSubjectKey('');
+    setSearchInput('');
+    setAppliedSearch('');
     setPage(1);
   };
 
@@ -425,7 +453,7 @@ export default function QuestionBankPage() {
             value={certType}
             onChange={(e) => {
               setCertType(e.target.value as CertType | '');
-              setSubjectIndex('');
+              setSubjectKey('');
               setPage(1);
             }}
           >
@@ -439,7 +467,7 @@ export default function QuestionBankPage() {
             value={level}
             onChange={(e) => {
               setLevel(e.target.value as CertLevel | '');
-              setSubjectIndex('');
+              setSubjectKey('');
               setPage(1);
             }}
           >
@@ -451,26 +479,42 @@ export default function QuestionBankPage() {
 
           {tab === 'mcq' && (
             <Select
-              value={subjectIndex}
+              value={subjectKey}
               onChange={(e) => {
-                setSubjectIndex(e.target.value === '' ? '' : parseInt(e.target.value, 10));
+                const key = e.target.value;
+                setSubjectKey(key);
+                if (key) {
+                  const [ct, lv] = key.split('|');
+                  if (ct === 'AXIS' || ct === 'AXIS_C' || ct === 'AXIS_H') {
+                    setCertType(ct);
+                  }
+                  if (lv === 'L1' || lv === 'L2' || lv === 'L3') {
+                    setLevel(lv);
+                  }
+                }
                 setPage(1);
               }}
             >
               <option value="">과목 전체</option>
-              {filteredSubjects.map((s) => (
-                <option key={`${s.certType}-${s.level}-${s.subjectIndex}`} value={s.subjectIndex}>
-                  {s.subjectName} ({s.questionCount})
-                </option>
-              ))}
+              {filteredSubjects.map((s) => {
+                const key = `${s.certType}|${s.level}|${s.subjectIndex}`;
+                const prefix =
+                  !certType || !level ? `${formatCertLabel(s.certType)} ${s.level} · ` : '';
+                return (
+                  <option key={key} value={key}>
+                    {prefix}
+                    {s.subjectName} ({s.questionCount})
+                  </option>
+                );
+              })}
             </Select>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           <Search
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
             placeholder={tab === 'mcq' ? '문항 내용 검색' : '과제명 또는 시나리오 검색'}
             className="min-w-[260px]"
@@ -478,7 +522,7 @@ export default function QuestionBankPage() {
           <Button variant="blue" onClick={handleSearch}>
             검색
           </Button>
-          {(certType || level || subjectIndex !== '' || search) && (
+          {(certType || level || subjectKey || appliedSearch || searchInput) && (
             <Button variant="secondary" onClick={handleClearFilters}>
               초기화
             </Button>

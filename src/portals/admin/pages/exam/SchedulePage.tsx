@@ -118,9 +118,10 @@ export function ScheduleScreen() {
       if (kind === 'ondemand' && !isOnDemand) return false;
       if (kind === 'rounds' && isOnDemand) return false;
       if (filter.year && String(r.year) !== filter.year) return false;
-      if (filter.q) {
+      const q = filter.q?.trim();
+      if (q) {
         const hay = `${certLabel(r.certType)} ${r.level} ${r.year} ${r.roundNumber} ${r.venue}`.toLowerCase();
-        if (!hay.includes(filter.q.toLowerCase())) return false;
+        if (!hay.includes(q.toLowerCase())) return false;
       }
       return true;
     });
@@ -230,7 +231,8 @@ export function ScheduleScreen() {
           <option value="CANCELLED">{t('sched.status.cancelled')}</option>
         </Select>
         <Select value={filter.year ?? ''} onChange={(e) => setFilter((f) => ({ ...f, year: e.target.value || undefined }))}>
-          <option value="">{t('sched.year', { y: new Date().getFullYear() })}</option>
+          <option value="">{t('common.all')}</option>
+          <option value={String(new Date().getFullYear())}>{t('sched.year', { y: new Date().getFullYear() })}</option>
           <option value={String(new Date().getFullYear() - 1)}>{t('sched.year', { y: new Date().getFullYear() - 1 })}</option>
         </Select>
         <Search
@@ -276,7 +278,7 @@ export function ScheduleScreen() {
                   </tr>
                 )}
                 {pagedRows.map((r) => {
-                  const cfg = STATUS_TONE[r.status];
+                  const cfg = STATUS_TONE[r.status] ?? { tone: 'gray' as ChipTone, key: 'sched.status.draft' };
                   const remaining = Math.max(0, r.capacity - r.currentCount);
                   const regPct =
                     r.capacity > 0 ? Math.round((r.currentCount / r.capacity) * 100) : null;
