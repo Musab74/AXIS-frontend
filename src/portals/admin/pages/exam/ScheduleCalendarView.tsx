@@ -133,9 +133,11 @@ function CalendarToolbar({
 export function ScheduleCalendarView({
   rows,
   focusDate,
+  onSelectSchedule,
 }: {
   rows: ScheduleRow[];
   focusDate: Date;
+  onSelectSchedule?: (row: ScheduleRow) => void;
 }) {
   const { lang } = useI18n();
   const [currentDate, setCurrentDate] = useState(focusDate);
@@ -236,6 +238,7 @@ export function ScheduleCalendarView({
           messages={messages}
           onDrillDown={(date: Date, _view: View) => setCurrentDate(date)}
           onNavigate={(date: Date) => setCurrentDate(date)}
+          onSelectEvent={(event) => onSelectSchedule?.(event.resource)}
           onSelectSlot={(slot: SlotInfo) => setCurrentDate(slot.start)}
           popup
           selectable

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Plus } from 'lucide-react';
 import { ScheduleCalendarView } from '@admin/pages/exam/ScheduleCalendarView';
+import { NewExamPanel } from '@admin/pages/exam/NewExamPanel';
+import { ScheduleDetailPanel } from '@admin/pages/exam/ScheduleDetailPanel';
 import {
   Card,
   PageHeader,
@@ -60,6 +62,10 @@ export function ScheduleScreen() {
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState<ScheduleRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [formOpen, setFormOpen] = useState(false);
+  const [editing, setEditing] = useState<ScheduleRow | null>(null);
+  const [detail, setDetail] = useState<ScheduleRow | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
   const [filter, setFilter] = useState<{
     certType?: CertType;
     level?: CertLevel;
@@ -87,7 +93,7 @@ export function ScheduleScreen() {
     return () => {
       cancelled = true;
     };
-  }, [filter.certType, filter.level, filter.status]);
+  }, [filter.certType, filter.level, filter.status, reloadKey]);
 
   const filtered = useMemo(() => {
     if (!rows) return [];
@@ -121,13 +127,36 @@ export function ScheduleScreen() {
     { id: 'list', label: t('sched.view.list') },
   ];
 
+  const openCreate = () => {
+    setDetail(null);
+    setEditing(null);
+    setFormOpen(true);
+  };
+
+  const openDetail = (row: ScheduleRow) => {
+    setFormOpen(false);
+    setEditing(null);
+    setDetail(row);
+  };
+
+  const openEdit = (row: ScheduleRow) => {
+    setDetail(null);
+    setEditing(row);
+    setFormOpen(true);
+  };
+
+  const closeForm = () => {
+    setFormOpen(false);
+    setEditing(null);
+  };
+
   return (
     <div>
       <PageHeader
         title={t('page.schedule.title')}
         subtitle={`${t('page.schedule.sub')}${t('sched.subSuffix', { n: rows?.length ?? 0 })}`}
         actions={
-          <Button variant="blue">
+          <Button variant="blue" onClick={openCreate}>
             <Plus className="w-3.5 h-3.5" /> {t('sched.new')}
           </Button>
         }
@@ -243,11 +272,11 @@ export function ScheduleScreen() {
                         {t(cfg.key)}
                       </Td>
                       <Td align="right">
-                        <Button size="sm" variant="blue" className="mr-2">
-                          상세보기
+                        <Button size="sm" variant="blue" className="mr-2" onClick={() => openDetail(r)}>
+                          {t('common.detailBtn')}
                         </Button>
-                        <Button size="sm" variant="secondary">
-                          수정하기
+                        <Button size="sm" variant="secondary" onClick={() => openEdit(r)}>
+                          {t('common.editBtn')}
                         </Button>
                       </Td>
                     </tr>
@@ -259,8 +288,25 @@ export function ScheduleScreen() {
           <Pagination page={page} totalPages={totalPages} onChange={setPage} total={filtered.length} />
         </>
       ) : (
-        <ScheduleCalendarView rows={filtered} focusDate={calendarDate} />
+        <ScheduleCalendarView
+          rows={filtered}
+          focusDate={calendarDate}
+          onSelectSchedule={openDetail}
+        />
       )}
+
+      <ScheduleDetailPanel
+        schedule={detail}
+        onClose={() => setDetail(null)}
+        onEdit={openEdit}
+      />
+
+      <NewExamPanel
+        open={formOpen}
+        schedule={editing}
+        onClose={closeForm}
+        onSaved={() => setReloadKey((k) => k + 1)}
+      />
     </div>
   );
 }

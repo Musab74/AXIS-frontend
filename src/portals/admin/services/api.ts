@@ -866,6 +866,37 @@ export const adminApi = {
   getSchedules: (params?: { certType?: CertType; level?: CertLevel; status?: ScheduleStatus }) =>
     api.get<ScheduleRow[]>('/schedules', { params }),
 
+  createSchedule: (data: {
+    certType: CertType;
+    level: CertLevel;
+    examDate: string;
+    examStartTime: string;
+    registrationStart: string;
+    registrationEnd: string;
+    capacity?: number;
+    venue?: string;
+    venueDetail?: string;
+    status?: ScheduleStatus;
+    roundNumber?: number;
+  }) => api.post<ScheduleRow>('/admin/schedules', data),
+
+  updateSchedule: (
+    id: string,
+    data: {
+      certType?: CertType;
+      level?: CertLevel;
+      examDate?: string;
+      examStartTime?: string;
+      registrationStart?: string;
+      registrationEnd?: string;
+      capacity?: number;
+      venue?: string;
+      venueDetail?: string;
+      status?: ScheduleStatus;
+      roundNumber?: number;
+    },
+  ) => api.patch<ScheduleRow>(`/admin/schedules/${id}`, data),
+
   getRegisteredExams: (params?: { certType?: CertType; level?: CertLevel; scheduleStatus?: ScheduleStatus }) =>
     api.get<RegisteredExamRow[]>('/admin/schedules/registrations', { params }),
 
