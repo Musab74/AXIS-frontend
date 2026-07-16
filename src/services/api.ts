@@ -406,6 +406,18 @@ export type CertificateVerifyResponse =
     }
   | {
       ok: true;
+      status: 'suspended' | 'revoked';
+      certNo: string;
+      holder: string;
+      track: string;
+      level: string;
+      issuedAt: string;
+      validUntil: string;
+      reason: string;
+      org: string;
+    }
+  | {
+      ok: true;
       status: 'demo';
       certNo: string;
       holder: string;

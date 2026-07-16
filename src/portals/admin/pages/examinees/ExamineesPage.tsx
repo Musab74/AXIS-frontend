@@ -213,6 +213,7 @@ export function ExamineesScreen() {
           onTabChange={setActiveTab}
           onRefund={(reg) => setRefundTarget(reg)}
           onViewEvidence={(sessionId, name) => setEvidenceTarget({ sessionId, name })}
+          onRefresh={() => setReloadKey((k) => k + 1)}
         />
       </Modal>
 

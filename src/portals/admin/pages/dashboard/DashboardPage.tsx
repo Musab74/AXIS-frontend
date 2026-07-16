@@ -529,40 +529,7 @@ export function DashboardScreen({
         </Card>
       </div>
 
-      {/* 30-day chart placeholder — data series not yet exposed by dashboard API */}
-      <Card>
-        <CardHeader
-          title={t('dash.last30Days')}
-          right={
-            <div className="flex items-center gap-3 text-[11px] text-[var(--gray-500)]">
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#2563EB]" />
-                L3
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#F59E0B]" />
-                L2
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-2.5 w-2.5 rounded-full bg-[#22C55E]" />
-                L1
-              </span>
-            </div>
-          }
-        />
-        <div className="px-[18px] pb-[18px] pt-1">
-          <div className="flex h-[248px] flex-col items-center justify-center gap-2 text-sm text-[var(--gray-400)]">
-            <span>{t('common.empty')}</span>
-            <button
-              type="button"
-              onClick={onJumpToStats}
-              className="text-[12px] text-[var(--primary)] hover:underline"
-            >
-              {t('common.statsDetail')}
-            </button>
-          </div>
-        </div>
-      </Card>
+      {/* Real analytics live under Stats — avoid a fake empty 30-day chart here */}
     </div>
   );
 }

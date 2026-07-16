@@ -19,6 +19,7 @@ interface ExamineeDetailContentProps {
   onTabChange: (t: DetailTab) => void;
   onRefund: (reg: ExamineeRegistrationDetail) => void;
   onViewEvidence: (sessionId: string, name: string) => void;
+  onRefresh?: () => void;
 }
 
 export function ExamineeDetailContent({
@@ -28,6 +29,7 @@ export function ExamineeDetailContent({
   onTabChange,
   onRefund,
   onViewEvidence,
+  onRefresh,
 }: ExamineeDetailContentProps) {
   const { t } = useI18n();
 
@@ -88,7 +90,7 @@ export function ExamineeDetailContent({
             onViewEvidence={(sid) => onViewEvidence(sid, detail.user.name)}
           />
         )}
-        {activeTab === 'cert' && <CertTab detail={detail} />}
+        {activeTab === 'cert' && <CertTab detail={detail} onRefresh={onRefresh} />}
         {activeTab === 'penalty' && <PenaltyTab detail={detail} />}
       </div>
     </div>

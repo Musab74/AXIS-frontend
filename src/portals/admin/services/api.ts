@@ -280,6 +280,9 @@ export interface ExamineeCertificate {
   validUntil: string;
   totalScore: number | null;
   sessionId: string;
+  lifecycleStatus?: 'ACTIVE' | 'SUSPENDED' | 'REVOKED';
+  statusReason?: string | null;
+  displayStatus?: 'VALID' | 'EXPIRED' | 'SUSPENDED' | 'REVOKED';
 }
 
 export interface ExamineePenalty {
@@ -1339,6 +1342,28 @@ export const adminApi = {
     }),
   getExamineeDetail: (userId: string) =>
     api.get<ExamineeDetail>(`/admin/examinees/${userId}`),
+  updateCertificateStatus: (
+    certId: string,
+    body: { status: 'ACTIVE' | 'SUSPENDED' | 'REVOKED'; reason?: string },
+  ) =>
+    api.patch<{
+      id: string;
+      lifecycleStatus: string;
+      statusReason: string | null;
+      displayStatus: string;
+    }>(`/admin/certificates/${certId}/status`, body),
+  getCertificateStatusHistory: (certId: string) =>
+    api.get<
+      Array<{
+        id: string;
+        actorId: string;
+        action: string;
+        before: unknown;
+        after: unknown;
+        reason: string | null;
+        createdAt: string;
+      }>
+    >(`/admin/certificates/${certId}/history`),
   adminRefundRegistration: (
     registrationId: string,
     body: {

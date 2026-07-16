@@ -28,7 +28,7 @@ type VerifyResult =
   | { status: 'valid'; certNo: string; holder: string; track: string; level: string; issuedAt: string; validUntil: string; org: string }
   | { status: 'expired'; certNo: string; holder: string; track: string; level: string; issuedAt: string; expiredAt: string }
   | { status: 'suspended'; certNo: string; holder: string; reason: string }
-  | { status: 'cancelled'; certNo: string; holder: string; cancelledAt: string }
+  | { status: 'revoked'; certNo: string; holder: string; reason: string }
   | { status: 'demo'; certNo: string; holder: string; track: string; level: string; org: string }
   | { status: 'invalid' };
 
@@ -126,6 +126,30 @@ async function runCertificateVerify(certNoRaw: string, holderRaw: string): Promi
           track: data.track,
           level: data.level,
           org: data.org,
+        },
+        modalOpen: true,
+        toast: null,
+      };
+    }
+    if (data.status === 'suspended') {
+      return {
+        result: {
+          status: 'suspended',
+          certNo: data.certNo,
+          holder: data.holder,
+          reason: data.reason,
+        },
+        modalOpen: true,
+        toast: null,
+      };
+    }
+    if (data.status === 'revoked') {
+      return {
+        result: {
+          status: 'revoked',
+          certNo: data.certNo,
+          holder: data.holder,
+          reason: data.reason,
         },
         modalOpen: true,
         toast: null,
@@ -264,16 +288,16 @@ function VerifyResultModalView({ result, onClose }: { result: ModalResult; onClo
     );
   }
 
-  // cancelled
+  // revoked
   return (
     <ResultModal title="취소된 자격" onClose={onClose}>
       <ResultModalRows
-        description="이 자격증은 취소 처리되었습니다. 공식 자격으로 인정되지 않습니다."
+        description="이 자격증은 취소(Revoked) 처리되었습니다. 공식 자격으로 인정되지 않습니다."
         descriptionColor="#DC2626"
         rows={[
           { label: '자격증 번호', value: result.certNo, valueClass: 'font-en font-semibold break-all' },
           { label: '소지자', value: result.holder, valueClass: 'font-semibold' },
-          { label: '취소일', value: result.cancelledAt, valueClass: 'font-en' },
+          { label: '사유', value: result.reason },
         ]}
       />
     </ResultModal>
