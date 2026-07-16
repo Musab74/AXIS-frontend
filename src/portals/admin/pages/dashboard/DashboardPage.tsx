@@ -22,8 +22,10 @@ import {
   DashboardStats,
   LiveSummary,
   PassRateStats,
+  ScheduleRow,
   triggerBlobDownload,
 } from '@admin/services/api';
+import { sessionCanAccessAdminPage } from '@admin/adminRoutes';
 import { AxiosError } from 'axios';
 
 const WEEKDAY_KEYS = [
@@ -59,34 +61,151 @@ function todayYmd(): string {
   return `${y}-${m}-${day}`;
 }
 
+function scheduleYmd(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
+function countTodayBuckets(schedules: ScheduleRow[]): {
+  inProgress: number;
+  upcoming: number;
+  completed: number;
+} {
+  const day = todayYmd();
+  let inProgress = 0;
+  let upcoming = 0;
+  let completed = 0;
+  for (const s of schedules) {
+    if (scheduleYmd(s.examDate) !== day) continue;
+    if (s.status === 'IN_PROGRESS') inProgress += 1;
+    else if (s.status === 'COMPLETED' || s.status === 'CANCELLED') completed += 1;
+    else upcoming += 1; // UPCOMING / REGISTRATION_* on today's date
+  }
+  return { inProgress, upcoming, completed };
+}
+
+type PendingItem = {
+  id: string;
+  labelKey: string;
+  count: number;
+  onJump?: () => void;
+};
+
 export function DashboardScreen({
   onJumpToMonitoring,
   onJumpToStats,
   onJumpToSchedule,
+  onJumpToGrading,
+  onJumpToRefunds,
+  onJumpToEligibility,
 }: {
   onJumpToMonitoring: () => void;
   onJumpToStats: () => void;
   onJumpToSchedule: () => void;
+  onJumpToGrading: () => void;
+  onJumpToRefunds: () => void;
+  onJumpToEligibility: () => void;
 }) {
   const { t } = useI18n();
   const [stats, setStats] = useState<DashboardStats | null>(null);
   const [passRate, setPassRate] = useState<PassRateStats | null>(null);
   const [live, setLive] = useState<LiveSummary | null>(null);
+  const [todayBuckets, setTodayBuckets] = useState({ inProgress: 0, upcoming: 0, completed: 0 });
+  const [pending, setPending] = useState<PendingItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
 
   const refresh = () => {
     setLoading(true);
-    Promise.all([
+
+    const core = Promise.all([
       adminApi.getAdminDashboard(),
       adminApi.getMonitorSummary(),
       adminApi.getAdminPassRate(),
-    ])
-      .then(([s, l, p]) => {
+      adminApi.getSchedules().catch(() => ({ data: [] as ScheduleRow[] })),
+    ]);
+
+    const optional: Promise<void>[] = [];
+
+    let gradingPending = 0;
+    let refundPending: number | null = null;
+    let eligibilityPending: number | null = null;
+
+    if (sessionCanAccessAdminPage('grading')) {
+      optional.push(
+        adminApi
+          .getGradingCounts()
+          .then((r) => {
+            gradingPending = (r.data.aiDone ?? 0) + (r.data.reviewing ?? 0) + (r.data.overdue ?? 0);
+          })
+          .catch(() => undefined),
+      );
+    }
+    if (sessionCanAccessAdminPage('refund-requests')) {
+      optional.push(
+        adminApi
+          .getRefundRequestCounts()
+          .then((r) => {
+            refundPending = r.data.pending ?? 0;
+          })
+          .catch(() => undefined),
+      );
+    }
+    if (sessionCanAccessAdminPage('eligibility')) {
+      optional.push(
+        adminApi
+          .getEligibilityCounts()
+          .then((r) => {
+            eligibilityPending = r.data.pending ?? 0;
+          })
+          .catch(() => undefined),
+      );
+    }
+
+    Promise.all([core, Promise.all(optional)])
+      .then(([[s, l, p, schedules]]) => {
         setStats(s.data);
         setLive(l.data);
         setPassRate(p.data);
+        setTodayBuckets(countTodayBuckets(schedules.data ?? []));
+
+        const next: PendingItem[] = [];
+        if (sessionCanAccessAdminPage('grading')) {
+          next.push({
+            id: 'grading',
+            labelKey: 'dash.pending.grading',
+            count: gradingPending || (s.data.gradingDonut.waiting + s.data.gradingDonut.reviewing),
+            onJump: onJumpToGrading,
+          });
+        }
+        if (refundPending != null) {
+          next.push({
+            id: 'refunds',
+            labelKey: 'dash.pending.refunds',
+            count: refundPending,
+            onJump: onJumpToRefunds,
+          });
+        }
+        if (eligibilityPending != null) {
+          next.push({
+            id: 'eligibility',
+            labelKey: 'dash.pending.eligibility',
+            count: eligibilityPending,
+            onJump: onJumpToEligibility,
+          });
+        }
+        next.push({
+          id: 'alerts',
+          labelKey: 'dash.pending.alerts',
+          count: l.data.warnings ?? 0,
+          onJump: onJumpToMonitoring,
+        });
+        setPending(next);
         setError(null);
       })
       .catch((e) => setError(e?.response?.data?.message ?? 'Failed to load dashboard'))
@@ -135,6 +254,8 @@ export function DashboardScreen({
     [passRate],
   );
 
+  const pendingTotal = pending.reduce((n, p) => n + p.count, 0);
+
   return (
     <div>
       <PageHeader
@@ -162,6 +283,69 @@ export function DashboardScreen({
         <Card className="p-4 mb-4 border-rose-200 bg-rose-50/40 text-sm text-rose-700">{error}</Card>
       )}
 
+      {/* Today's exam status buckets */}
+      <div className="mb-4 rounded-xl border border-[var(--gray-border)] bg-[var(--gray-50)] px-4 py-3">
+        <div className="mb-2 text-[12px] font-semibold text-[var(--gray-500)]">{t('dash.todayStatus')}</div>
+        <div className="grid grid-cols-3 gap-2">
+          {(
+            [
+              { key: 'dash.today.inProgress', value: todayBuckets.inProgress, tone: 'text-[var(--blue)]' },
+              { key: 'dash.today.upcoming', value: todayBuckets.upcoming, tone: 'text-[var(--gray-900)]' },
+              { key: 'dash.today.completed', value: todayBuckets.completed, tone: 'text-[var(--gray-600)]' },
+            ] as const
+          ).map((b) => (
+            <button
+              key={b.key}
+              type="button"
+              onClick={onJumpToSchedule}
+              className="rounded-lg bg-white px-3 py-2 text-left border border-[var(--gray-100)] hover:border-[var(--gray-border)]"
+            >
+              <div className="text-[11px] text-[var(--gray-500)]">{t(b.key)}</div>
+              <div className={`mt-1 text-[20px] font-bold tabular-nums ${b.tone}`}>{fmtNum(b.value)}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Pending inbox */}
+      <Card className="mb-5">
+        <CardHeader
+          title={t('dash.pendingInbox')}
+          right={
+            <span className="text-[12px] text-[var(--gray-500)] tabular-nums">
+              {fmtNum(pendingTotal)}
+            </span>
+          }
+        />
+        <div className="px-[18px] pb-4">
+          {pending.length === 0 ? (
+            <div className="py-6 text-center text-sm text-[var(--gray-400)]">{t('dash.pending.empty')}</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-2">
+              {pending.map((item) => (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={item.onJump}
+                  disabled={!item.onJump}
+                  className="flex items-center justify-between rounded-lg border border-[var(--gray-100)] bg-white px-3 py-2.5 text-left hover:border-[var(--gray-border)] disabled:cursor-default"
+                >
+                  <span className="text-[13px] text-[var(--gray-700)]">{t(item.labelKey)}</span>
+                  <span
+                    className={[
+                      'text-[16px] font-bold tabular-nums',
+                      item.count > 0 ? 'text-[var(--red)]' : 'text-[var(--gray-400)]',
+                    ].join(' ')}
+                  >
+                    {fmtNum(item.count)}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+      </Card>
+
       {/* KPI grid */}
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3.5 mb-5">
         <SimpleKpiCard
@@ -177,6 +361,7 @@ export function DashboardScreen({
               <span className="font-medium text-[var(--red)]">{fmtNum(todayWarnings)}</span>
             </>
           }
+          onClick={onJumpToMonitoring}
         />
         <SimpleKpiCard
           label={t('dash.kpi.monthReg')}
@@ -204,6 +389,7 @@ export function DashboardScreen({
               <span className="font-medium text-[var(--blue)]">{fmtNum(gradedCompleted)}</span>
             </>
           }
+          onClick={sessionCanAccessAdminPage('grading') ? onJumpToGrading : undefined}
         />
         <SimpleKpiCard
           label={t('dash.kpi.cheatAlerts')}

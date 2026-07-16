@@ -123,6 +123,9 @@ function AdminShell() {
             onJumpToMonitoring={() => handleNavigate('monitoring')}
             onJumpToStats={() => handleNavigate('stats')}
             onJumpToSchedule={() => handleNavigate('schedule')}
+            onJumpToGrading={() => handleNavigate('grading')}
+            onJumpToRefunds={() => handleNavigate('refund-requests')}
+            onJumpToEligibility={() => handleNavigate('eligibility')}
           />
         );
       case 'monitoring':
