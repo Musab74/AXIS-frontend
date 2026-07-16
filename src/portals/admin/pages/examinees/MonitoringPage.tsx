@@ -505,7 +505,6 @@ export function MonitoringScreen() {
     const list = examinees ?? [];
     return [
       { labelKey: 'mon.kpi.connected', dot: 'bg-emerald-500', value: list.filter((e) => e.status === 'normal' || e.status === 'warning' || e.status === 'danger').length },
-      { labelKey: 'mon.kpi.envCheck', dot: 'bg-blue-500', value: 0 },
       { labelKey: 'mon.kpi.submitted', dot: 'bg-blue-500', value: list.filter((e) => e.status === 'submitted').length },
       { labelKey: 'mon.kpi.warned', dot: 'bg-amber-500', value: list.reduce((s, e) => s + (e.warnings > 0 ? 1 : 0), 0) },
       { labelKey: 'mon.kpi.terminated', dot: 'bg-rose-500', value: list.filter((e) => e.status === 'terminated').length },
@@ -521,45 +520,39 @@ export function MonitoringScreen() {
     { id: 'terminated', label: t('mon.tab.term'), count: allRows.filter((e) => e.status === 'terminated').length },
   ];
 
+  const examLabel = summary?.inProgress
+    ? (summary.examName || t('mon.subtitle'))
+    : t('mon.noExam');
   const liveLine = summary?.inProgress
     ? `${summary.takers} ${t('mon.kpi.connected')}`
-    : (t('mon.noExam') || 'No active exam');
+    : t('mon.noExam');
+  const wsLabel = wsConnected ? t('chrome.wsConnected') : t('mon.wsReconnecting');
   const clock = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
   return (
     <div>
       <PageHeader
         title={
-          <span className="inline-flex items-center gap-2.5">
-            <span className="relative inline-block w-2.5 h-2.5 rounded-full bg-[var(--red)]">
+          <span className="inline-flex items-center gap-2.5 flex-wrap">
+            <span className="relative inline-block w-2.5 h-2.5 rounded-full bg-[var(--red)] shrink-0">
               <span className="absolute inset-[-4px] rounded-full bg-[var(--red)] opacity-40 animate-[pulse-dot_1.6s_ease-out_infinite]" />
             </span>
-            {t('mon.title')}
-            <span className="px-2 py-0.5 rounded-full bg-[var(--red)] text-white text-[11px] font-bold tracking-wider align-middle">
+            <span className="whitespace-normal break-keep">{t('mon.title')}</span>
+            <span className="px-2 py-0.5 rounded-full bg-[var(--red)] text-white text-[11px] font-bold tracking-wider align-middle shrink-0">
               LIVE
             </span>
           </span>
         }
-        subtitle={`${t('mon.subtitle')} · ${liveLine} · ${clock}`}
+        subtitle={`${examLabel} · ${wsLabel} · ${liveLine} · ${clock}`}
         actions={
-          <>
-            <Chip tone={wsConnected ? 'green' : 'orange'} dot pulse={wsConnected}>
-              {wsConnected ? t('chrome.wsConnected') : t('mon.wsReconnecting')}
-            </Chip>
-            <Button variant="ghost">
-              <Clock className="w-4 h-4" />
-              {t('mon.timeAdjust')}
-            </Button>
-            <Button variant="blue">
-              <AlertTriangle className="w-4 h-4" />
-              {t('mon.urgentNotice')}
-            </Button>
-          </>
+          <Chip tone={wsConnected ? 'green' : 'orange'} dot pulse={wsConnected}>
+            {wsLabel}
+          </Chip>
         }
       />
 
       {/* KPI strip */}
-      <div className="grid grid-cols-6 gap-3.5 mb-5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3.5 mb-5">
         {kpis.map((s) => (
           <SimpleKpiCard
             key={s.labelKey}
@@ -575,9 +568,9 @@ export function MonitoringScreen() {
       </div>
 
       {/* Main grid: roster · inspector · feed */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4">
         {/* Roster */}
-        <Card className="col-span-3">
+        <Card className="xl:col-span-3">
           <CardHeader
             title={
               <>
@@ -686,9 +679,9 @@ export function MonitoringScreen() {
         </Card>
 
         {/* Inspector */}
-        <Card className="col-span-6 p-5">
+        <Card className="xl:col-span-6 p-5">
           {selected === null ? (
-            <div className="py-16 text-center text-sm text-[var(--gray-400)]">{t('mon.selectPrompt') || 'Select a candidate to inspect'}</div>
+            <div className="py-16 text-center text-sm text-[var(--gray-400)]">{t('mon.selectPrompt')}</div>
           ) : (
             <>
               <div className="flex items-start justify-between mb-5">
@@ -909,7 +902,7 @@ export function MonitoringScreen() {
         </Card>
 
         {/* Live feed */}
-        <Card className="col-span-3">
+        <Card className="xl:col-span-3">
           <CardHeader
             title={t('mon.feed')}
             right={<Chip tone="green" dot pulse className="!text-[10px] !px-1.5">LIVE</Chip>}

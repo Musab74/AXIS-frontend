@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { RefreshCw } from 'lucide-react';
+import { Download, Loader2, RefreshCw } from 'lucide-react';
 import {
   Card,
   PageHeader,
@@ -14,6 +14,7 @@ import {
   Pagination,
   SimpleKpiCard,
   Modal,
+  pushToast,
 } from '@admin/components/shared/ui-kit';
 import { useI18n } from '@admin/i18n';
 import {
@@ -22,6 +23,7 @@ import {
   MemberProfile,
   SearchUsersResult,
   UserSummary,
+  triggerBlobDownload,
 } from '@admin/services/api';
 import { MaskedPii } from '@admin/components/shared/MaskedPii';
 import { AccountStatusBadge } from '../examinees/components/AccountStatusBadge';
@@ -32,8 +34,28 @@ import { MemberDetailContent, type MemberDetailTab } from './components/MemberDe
 
 const PAGE_SIZE = 20;
 
-function fmtNice(v: boolean, t: (k: string) => string): string {
+function fmtNice(v: boolean): string {
   return v ? '✓' : '✕';
+}
+
+async function extractBlobError(e: unknown): Promise<string | null> {
+  const err = e as { response?: { data?: Blob | { message?: string } } };
+  const data = err.response?.data;
+  if (data instanceof Blob) {
+    try {
+      const text = await data.text();
+      const parsed = JSON.parse(text) as { message?: string | string[] };
+      const msg = parsed.message;
+      return Array.isArray(msg) ? msg.join(', ') : msg ?? text;
+    } catch {
+      return null;
+    }
+  }
+  if (data && typeof data === 'object' && 'message' in data) {
+    const msg = (data as { message?: string | string[] }).message;
+    return Array.isArray(msg) ? msg.join(', ') : msg ?? null;
+  }
+  return null;
 }
 
 export default function MembersPage() {
@@ -47,6 +69,7 @@ export default function MembersPage() {
 
   const [list, setList] = useState<SearchUsersResult | null>(null);
   const [listError, setListError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [detail, setDetail] = useState<MemberProfile | null>(null);
@@ -110,22 +133,46 @@ export default function MembersPage() {
     loadDetail(selectedId);
   }, [selectedId, reloadKey]);
 
-  const kpis = useMemo(() => {
-    const items = list?.items ?? [];
-    return {
+  const kpis = useMemo(
+    () => ({
       total: list?.total ?? 0,
-      active: items.filter((u) => u.accountStatus === 'ACTIVE').length,
-      suspended: items.filter((u) => u.accountStatus === 'SUSPENDED').length,
-      penalty: items.filter((u) => u.activePenaltyCount > 0).length,
-    };
-  }, [list]);
+      active: list?.counts?.active ?? 0,
+      suspended: list?.counts?.suspended ?? 0,
+      penalty: list?.counts?.withPenalty ?? 0,
+    }),
+    [list],
+  );
 
   const openRow = (row: UserSummary) => {
     setSelectedId(row.id);
     setActiveTab('profile');
   };
 
+  const onExport = async () => {
+    if (list && list.total === 0) {
+      pushToast(t('mem.exportEmpty'), 'orange');
+      return;
+    }
+    setExporting(true);
+    try {
+      const res = await adminApi.exportUsers({
+        q: debouncedQ.trim() || undefined,
+        accountStatus: accountStatus || undefined,
+        role: role || undefined,
+      });
+      const stamp = new Date().toISOString().slice(0, 10);
+      triggerBlobDownload(res.data, `members_${stamp}.xlsx`);
+      pushToast(t('mem.exportOk'), 'green');
+    } catch (e) {
+      const msg = (await extractBlobError(e)) || t('mem.exportFailed');
+      pushToast(msg, 'red');
+    } finally {
+      setExporting(false);
+    }
+  };
+
   const selectedName = detail?.user.name ?? list?.items.find((r) => r.id === selectedId)?.name;
+  const totalPages = list ? Math.max(1, Math.ceil(list.total / PAGE_SIZE)) : 1;
 
   return (
     <div>
@@ -133,10 +180,20 @@ export default function MembersPage() {
         title={t('page.members.title')}
         subtitle={t('page.members.sub')}
         actions={
-          <Button variant="secondary" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
-            <RefreshCw className="h-4 w-4 mr-1.5" />
-            {t('common.refresh')}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={onExport} disabled={exporting || list === null}>
+              {exporting ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-1.5" />
+              )}
+              {t('common.excel')}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => setReloadKey((k) => k + 1)}>
+              <RefreshCw className="h-4 w-4 mr-1.5" />
+              {t('common.refresh')}
+            </Button>
+          </div>
         }
       />
 
@@ -148,18 +205,22 @@ export default function MembersPage() {
       </div>
 
       <FilterBar className="mb-4">
-        <Select
-          value={accountStatus}
-          onChange={(e) => setAccountStatus(e.target.value)}
-        >
-          <option value="">{t('mem.filter.status')}: {t('mem.filter.all')}</option>
+        <Select value={accountStatus} onChange={(e) => setAccountStatus(e.target.value)}>
+          <option value="">
+            {t('mem.filter.status')}: {t('mem.filter.all')}
+          </option>
           <option value="ACTIVE">{t('exm.account.ACTIVE')}</option>
           <option value="SUSPENDED">{t('exm.account.SUSPENDED')}</option>
           <option value="WITHDRAWN">{t('exm.account.WITHDRAWN')}</option>
         </Select>
         <Select value={role} onChange={(e) => setRole(e.target.value)}>
-          <option value="">{t('mem.filter.role')}: {t('mem.filter.all')}</option>
+          <option value="">
+            {t('mem.filter.role')}: {t('mem.filter.all')}
+          </option>
           <option value="EXAMINEE">EXAMINEE</option>
+          <option value="EXPERT">EXPERT</option>
+          <option value="PROCTOR">PROCTOR</option>
+          <option value="GRADING_ADMIN">GRADING_ADMIN</option>
           <option value="EXAM_ADMIN">EXAM_ADMIN</option>
           <option value="SUPER_ADMIN">SUPER_ADMIN</option>
         </Select>
@@ -187,7 +248,6 @@ export default function MembersPage() {
               <Th className="text-left!">{t('mem.col.phone')}</Th>
               <Th>{t('mem.col.status')}</Th>
               <Th>{t('mem.col.nice')}</Th>
-              <Th>{t('mem.col.linked')}</Th>
               <Th>{t('mem.col.penalty')}</Th>
               <Th>{t('mem.col.joined')}</Th>
               <Th>{t('mem.col.lastLogin')}</Th>
@@ -196,13 +256,13 @@ export default function MembersPage() {
           <tbody>
             {!list ? (
               <tr>
-                <Td colSpan={10} className="text-center py-10 text-slate-400">
+                <Td colSpan={9} className="text-center py-10 text-slate-400">
                   {t('common.loading')}
                 </Td>
               </tr>
             ) : list.items.length === 0 ? (
               <tr>
-                <Td colSpan={10} className="text-center py-10 text-slate-400">
+                <Td colSpan={9} className="text-center py-10 text-slate-400">
                   {t('common.empty')}
                 </Td>
               </tr>
@@ -222,17 +282,11 @@ export default function MembersPage() {
                   <Td>
                     <AccountStatusBadge status={row.accountStatus} />
                   </Td>
-                  <Td>{fmtNice(row.niceVerified, t)}</Td>
-                  <Td>
-                    <span
-                      className="text-xs text-emerald-700"
-                      title={t('mem.col.linkedHint')}
-                    >
-                      ✓
-                    </span>
-                  </Td>
+                  <Td>{fmtNice(row.niceVerified)}</Td>
                   <Td className="tabular-nums">{row.activePenaltyCount}</Td>
-                  <Td muted className="whitespace-nowrap tabular-nums">{fmtDate(row.createdAt)}</Td>
+                  <Td muted className="whitespace-nowrap tabular-nums">
+                    {fmtDate(row.createdAt)}
+                  </Td>
                   <Td muted className="whitespace-nowrap tabular-nums text-xs">
                     {row.lastLoginAt ? fmtDateTime(row.lastLoginAt) : '—'}
                   </Td>
@@ -243,14 +297,9 @@ export default function MembersPage() {
         </Table>
       </TableWrap>
 
-      {list && list.total > PAGE_SIZE && (
+      {list && list.total > 0 && (
         <div className="mt-4">
-          <Pagination
-            page={page}
-            totalPages={Math.ceil(list.total / PAGE_SIZE)}
-            onChange={setPage}
-            total={list.total}
-          />
+          <Pagination page={page} totalPages={totalPages} onChange={setPage} total={list.total} />
         </div>
       )}
 

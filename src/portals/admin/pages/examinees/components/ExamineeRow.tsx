@@ -69,9 +69,16 @@ export function ExamineeRow({
         {t(`exm.status.${row.examineeStatus}`)}
       </Td>
       <Td className="w-30">
-          <Button size="sm" variant="blue" >
-              상세보기
-          </Button>
+        <Button
+          size="sm"
+          variant="blue"
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggle();
+          }}
+        >
+          {t('exm.action.detail')}
+        </Button>
       </Td>
     </tr>
   );

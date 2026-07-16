@@ -44,7 +44,7 @@ export function ExamineesList({
               <Th>{t('exm.col.exam')}</Th>
               <Th>{t('exm.col.examDate')}</Th>
               <Th>{t('exm.col.status')}</Th>
-              <Th className="w-8" >관리</Th>
+              <Th className="w-8">{t('exm.col.actions')}</Th>
             </tr>
           </thead>
           <tbody>

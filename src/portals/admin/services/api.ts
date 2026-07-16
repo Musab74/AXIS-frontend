@@ -336,6 +336,11 @@ export interface SearchUsersResult {
   total: number;
   page: number;
   limit: number;
+  counts?: {
+    active: number;
+    suspended: number;
+    withPenalty: number;
+  };
 }
 
 export interface UserRoleDetail {
@@ -601,6 +606,32 @@ export interface EligibilityRefundRow {
   candidateNote?: string;
   processedAt?: string;
   processedBy?: string;
+  adminNote?: string;
+}
+
+export interface RefundRequestRow {
+  registrationId: string;
+  userId: string;
+  userName: string;
+  userEmail: string | null;
+  certType: CertType;
+  level: CertLevel;
+  roundNumber: number;
+  examDate: string;
+  paidAmount: number;
+  expectedAmount: number;
+  refundTier: string;
+  paymentMethod: string | null;
+  bankCode: string;
+  bankName: string;
+  accountNumber: string;
+  holderName: string;
+  requestedAt: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  candidateNote?: string;
+  processedAt?: string;
+  processedBy?: string;
+  processedAmount?: number;
   adminNote?: string;
 }
 
@@ -893,6 +924,12 @@ export const adminApi = {
 
   getUsers: (params?: { q?: string; accountStatus?: string; role?: string; page?: number; limit?: number }) =>
     api.get<SearchUsersResult>('/admin/users', { params }),
+  exportUsers: (params?: { q?: string; accountStatus?: string; role?: string }) =>
+    api.get<Blob>('/admin/users/export', {
+      params,
+      responseType: 'blob',
+      timeout: 120_000,
+    }),
 
   getUserDetail: (id: string) => api.get(`/admin/users/${id}`),
 
@@ -1022,6 +1059,17 @@ export const adminApi = {
     sessionId: string,
     body: { tasks: { taskId: string; expertScore: number; expertNotes?: string }[]; failReason?: string },
   ) => api.post<FinalizeResult>(`/admin/grading/sessions/${sessionId}/finalize`, body),
+  /**
+   * Pass/fail decision on a force-terminated (cheating) exam. Confirm = pass
+   * (certificate issued), reject = fail. Judged on the saved answers + evidence.
+   */
+  reviewTerminated: (sessionId: string, decision: 'pass' | 'fail', note?: string) =>
+    api.post<{
+      sessionId: string;
+      passed: boolean;
+      totalScore: number | null;
+      certificate: { certNumber: string } | null;
+    }>(`/admin/grading/sessions/${sessionId}/review-terminated`, { decision, note }),
   assignExpert: (sessionId: string, expertId: string) =>
     api.post<{ ok: true }>(`/admin/grading/sessions/${sessionId}/assign`, { expertId }),
   assignBulk: (sessionIds: string[], expertId: string) =>
@@ -1066,6 +1114,24 @@ export const adminApi = {
   rejectEligibilityRefund: (registrationId: string, note?: string) =>
     api.post<{ ok: true }>(
       `/admin/registrations/eligibility-refunds/${registrationId}/reject`,
+      { note },
+    ),
+
+  // ── Candidate refund requests (bank account → admin confirm) ───────────
+  getRefundRequestQueue: (status: 'PENDING' | 'ALL' = 'PENDING') =>
+    api.get<RefundRequestRow[]>('/admin/registrations/refund-requests', {
+      params: { status },
+    }),
+  getRefundRequestCounts: () =>
+    api.get<{ pending: number }>('/admin/registrations/refund-requests/counts'),
+  approveRefundRequest: (registrationId: string, note?: string) =>
+    api.post<{ ok: true; refundAmount: number; refundTier: string }>(
+      `/admin/registrations/refund-requests/${registrationId}/approve`,
+      { note },
+    ),
+  rejectRefundRequest: (registrationId: string, note?: string) =>
+    api.post<{ ok: true }>(
+      `/admin/registrations/refund-requests/${registrationId}/reject`,
       { note },
     ),
 
