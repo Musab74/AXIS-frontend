@@ -123,7 +123,12 @@ export function MemberDetailContent({
         {activeTab === 'identity' && <IdentityTab detail={detail} />}
         {activeTab === 'exams' && <ExamsTab detail={detail} onReload={onReload} />}
         {activeTab === 'payments' && (
-          <HistoryTab detail={detail} onRefund={onRefund} onViewEvidence={() => undefined} />
+          <HistoryTab
+            detail={detail}
+            onRefund={onRefund}
+            onViewEvidence={() => undefined}
+            onRefresh={onReload}
+          />
         )}
         {activeTab === 'cert' && <CertTab detail={detail} />}
         {activeTab === 'activity' && <ActivityTab activity={activity} />}

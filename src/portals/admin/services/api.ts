@@ -1377,6 +1377,29 @@ export const adminApi = {
       };
     },
   ) => api.post<AdminRefundResult>(`/admin/registrations/${registrationId}/refund`, body),
+  adminCancelRegistration: (
+    registrationId: string,
+    body: { reason: string; mode?: AdminRefundMode },
+  ) => api.post<AdminRefundResult>(`/admin/registrations/${registrationId}/cancel`, body),
+  resendRegistrationTicket: (registrationId: string) =>
+    api.post<{
+      ok: true;
+      emailedTo: string | null;
+      delivery: 'STUBBED';
+      ticket: Record<string, unknown>;
+    }>(`/admin/registrations/${registrationId}/resend-ticket`),
+  getRegistrationHistory: (registrationId: string) =>
+    api.get<
+      Array<{
+        id: string;
+        actorId: string;
+        action: string;
+        before: unknown;
+        after: unknown;
+        reason: string | null;
+        createdAt: string;
+      }>
+    >(`/admin/registrations/${registrationId}/history`),
 
   // ── Admin inquiries (Q&A) ──────────────────────────────
   getInquiryStats: () => api.get<InquiryStats>('/admin/inquiries/stats'),

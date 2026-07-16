@@ -88,6 +88,7 @@ export function ExamineeDetailContent({
             detail={detail}
             onRefund={onRefund}
             onViewEvidence={(sid) => onViewEvidence(sid, detail.user.name)}
+            onRefresh={onRefresh}
           />
         )}
         {activeTab === 'cert' && <CertTab detail={detail} onRefresh={onRefresh} />}

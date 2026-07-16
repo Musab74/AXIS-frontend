@@ -28,6 +28,8 @@ import {
 } from '@admin/services/api';
 import { RefundModal } from '../examinees/RefundModal';
 import { useDebounce } from '../examinees/lib/useDebounce';
+import { RegistrationHistoryModal } from './RegistrationHistoryModal';
+import { AxiosError } from 'axios';
 
 const DEFAULT_PAGE_SIZE = 20;
 
@@ -127,6 +129,8 @@ export default function RegistrationsPage() {
     row: ExamineeListRow;
     detail: any;
   } | null>(null);
+  const [historyTarget, setHistoryTarget] = useState<ExamineeListRow | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
   const firstLoadRef = useRef(true);
 
   useEffect(() => {
@@ -199,6 +203,57 @@ export default function RegistrationsPage() {
       }
     } catch {
       pushToast(t('reg.refundDetailFail'), 'red');
+    }
+  };
+
+  const canResendTicket = (r: ExamineeListRow) =>
+    r.registrationStatus === 'PAID' || r.registrationStatus === 'EXAM_COMPLETED';
+
+  const canAdminCancel = (r: ExamineeListRow) =>
+    !r.refundable &&
+    r.registrationStatus !== 'CANCELLED' &&
+    r.registrationStatus !== 'REFUNDED' &&
+    r.registrationStatus !== 'EXAM_COMPLETED' &&
+    r.latestPayment?.status !== 'CONFIRMED';
+
+  const onResendTicket = async (row: ExamineeListRow) => {
+    setBusyId(row.registrationId);
+    try {
+      const { data } = await adminApi.resendRegistrationTicket(row.registrationId);
+      if (data.emailedTo) {
+        pushToast(t('reg.resendOk', { email: data.emailedTo }), 'green');
+      } else {
+        pushToast(t('reg.resendOkNoEmail'), 'green');
+      }
+    } catch (e) {
+      const msg =
+        (e as AxiosError<{ message?: string }>)?.response?.data?.message || t('reg.resendFail');
+      pushToast(msg, 'red');
+    } finally {
+      setBusyId(null);
+    }
+  };
+
+  const onCancelUnpaid = async (row: ExamineeListRow) => {
+    if (!window.confirm(t('reg.cancelConfirm'))) return;
+    const reason = window.prompt(t('reg.cancelReason'));
+    if (reason === null) return;
+    const trimmed = reason.trim();
+    if (!trimmed) {
+      pushToast(t('reg.cancelFail'), 'orange');
+      return;
+    }
+    setBusyId(row.registrationId);
+    try {
+      await adminApi.adminCancelRegistration(row.registrationId, { reason: trimmed });
+      pushToast(t('reg.cancelOk'), 'green');
+      setReloadKey((k) => k + 1);
+    } catch (e) {
+      const msg =
+        (e as AxiosError<{ message?: string }>)?.response?.data?.message || t('reg.cancelFail');
+      pushToast(msg, 'red');
+    } finally {
+      setBusyId(null);
     }
   };
 
@@ -419,14 +474,43 @@ export default function RegistrationsPage() {
                       : ''}
                   </Td>
                   <Td align="right">
-                    {r.refundable && (
-                      <Button variant="danger" size="sm" onClick={() => onRefundClick(r)}>
-                        {t('common.refund')}
+                    <div className="inline-flex flex-col items-end gap-1">
+                      {canResendTicket(r) && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          disabled={busyId === r.registrationId}
+                          onClick={() => void onResendTicket(r)}
+                        >
+                          {t('reg.resendTicket')}
+                        </Button>
+                      )}
+                      {r.refundable && (
+                        <Button variant="danger" size="sm" onClick={() => onRefundClick(r)}>
+                          {t('common.refund')}
+                        </Button>
+                      )}
+                      {canAdminCancel(r) && (
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          disabled={busyId === r.registrationId}
+                          onClick={() => void onCancelUnpaid(r)}
+                        >
+                          {t('reg.cancel')}
+                        </Button>
+                      )}
+                      {!r.refundable && pay?.isDemo && r.registrationStatus === 'PAID' && (
+                        <span className="text-[11px] text-amber-700">{t('exm.history.demoNoRefund')}</span>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setHistoryTarget(r)}
+                      >
+                        {t('reg.history')}
                       </Button>
-                    )}
-                    {!r.refundable && pay?.isDemo && r.registrationStatus === 'PAID' && (
-                      <span className="text-[11px] text-amber-700">{t('exm.history.demoNoRefund')}</span>
-                    )}
+                    </div>
                   </Td>
                 </tr>
               );
@@ -452,6 +536,13 @@ export default function RegistrationsPage() {
             setRefundTarget(null);
             setReloadKey((k) => k + 1);
           }}
+        />
+      )}
+      {historyTarget && (
+        <RegistrationHistoryModal
+          registrationId={historyTarget.registrationId}
+          title={`${historyTarget.user.name} · ${historyTarget.registrationNumber ?? historyTarget.registrationId}`}
+          onClose={() => setHistoryTarget(null)}
         />
       )}
     </div>
