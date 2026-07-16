@@ -31,6 +31,7 @@ import {
 import { getStoredAdminUser } from '@admin/utils/auth';
 import { AxiosError } from 'axios';
 import GradingDetailModal from './GradingDetailModal';
+import { PassCriteriaBanner } from './PassCriteriaBanner';
 
 const PAGE_SIZE = 20;
 
@@ -333,6 +334,8 @@ export function GradingScreen() {
           </>
         }
       />
+
+      <PassCriteriaBanner />
 
       {/* Summary KPIs */}
       <div className="grid grid-cols-4 gap-3.5 mb-5">

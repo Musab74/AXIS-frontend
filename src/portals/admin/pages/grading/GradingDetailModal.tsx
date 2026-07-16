@@ -3,6 +3,7 @@ import { X, Loader2, Bot, AlertTriangle, ShieldAlert, CheckCircle2, Save, Downlo
 import { Button, pushToast, CertTag, certCodeOf } from '@admin/components/shared/ui-kit';
 import { adminApi, type GradingDetail } from '@admin/services/api';
 import { AxiosError } from 'axios';
+import { PassCriteriaBanner } from './PassCriteriaBanner';
 
 interface Props {
   sessionId: string;
@@ -272,6 +273,8 @@ export default function GradingDetailModal({
         </div>
 
         <div className="px-6 py-5 space-y-4">
+          <PassCriteriaBanner compact />
+
           {error && (
             <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md p-2.5">
               <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />

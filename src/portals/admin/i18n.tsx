@@ -335,6 +335,27 @@ const dict: Dict = {
   "grade.detail.gradeExamDone": { ko: "AI 채점이 완료되었습니다. 점수는 저장만 되며 확정되지 않습니다.", en: "AI grading finished. Scores are saved only — nothing is finalized." },
   "grade.detail.terminatedNote": { ko: "강제종료된 시험입니다. 응시자는 이 시험을 이어서 볼 수 없으며, 답안은 저장된 상태입니다. 객관식은 자동 채점되었고, AI 채점은 [시험 채점] 버튼을 눌렀을 때만 실행됩니다.", en: "This exam was force-terminated. The candidate can never resume it; answers are preserved. MCQs are auto-graded — AI grading runs only when you click [Grade the exam]." },
   "grade.overdue.banner": { ko: "14일 초과 임박:", en: "14-day SLA at risk:" },
+  "grade.criteria.title": { ko: "합격 기준 (시험 표준 v3.0)", en: "Pass criteria (exam standard v3.0)" },
+  "grade.criteria.l3": {
+    ko: "L3 — 총점 60점 이상 AND 객관식 24/60(40%) 이상 AND 실습형 16/40(40%) 이상",
+    en: "L3 — total ≥60 AND MCQ ≥24/60 (40%) AND practical ≥16/40 (40%)",
+  },
+  "grade.criteria.l2": {
+    ko: "L2 — 총점 60점 이상 AND 객관식 12/30(40%) 이상 AND 실습 42/70(60%) 이상",
+    en: "L2 — total ≥60 AND MCQ ≥12/30 (40%) AND practical ≥42/70 (60%)",
+  },
+  "grade.criteria.l1": {
+    ko: "L1 — 총점 60점 이상 AND Part A 10/25(40%) AND Part B 33/55(60%) AND Part C 8/20(40%)",
+    en: "L1 — total ≥60 AND Part A ≥10/25 (40%) AND Part B ≥33/55 (60%) AND Part C ≥8/20 (40%)",
+  },
+  "grade.criteria.note": {
+    ko: "비보상(conjunctive) 모델 — 총점 하드컷 + 영역별 과락. 백엔드 SCORE_MODELS_V3 · 공개 결과 · 채점위원 규정과 동일.",
+    en: "Conjunctive model — total hard cut + section floors. Same numbers as backend SCORE_MODELS_V3, public results, and expert rules.",
+  },
+  "grade.criteria.compact": {
+    ko: "총점 ≥60 · L3 과락 40%/40% · L2 과락 40%/60% · L1 과락 40%/60%/40% (v3.0)",
+    en: "Total ≥60 · L3 floors 40%/40% · L2 40%/60% · L1 40%/60%/40% (v3.0)",
+  },
   "grade.col.session": { ko: "세션ID", en: "Session ID" },
   "grade.col.examinee": { ko: "응시자", en: "Examinee" },
   "grade.col.written": { ko: "필기", en: "Written" },

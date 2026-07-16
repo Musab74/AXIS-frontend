@@ -24,6 +24,7 @@ import {
 import { getStoredAdminUser } from '@admin/utils/auth';
 import { AxiosError } from 'axios';
 import GradingDetailModal from './GradingDetailModal';
+import { PassCriteriaBanner } from './PassCriteriaBanner';
 
 type CertFilter = 'all' | 'AXIS' | 'AXIS_C' | 'AXIS_H';
 type LevelFilter = 'all' | 'L1' | 'L2' | 'L3';
@@ -270,6 +271,8 @@ export default function ResultsPage({
           </>
         }
       />
+
+      <PassCriteriaBanner />
 
       <div className="mb-4 grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3.5">
         <SimpleKpiCard
