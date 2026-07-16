@@ -1030,6 +1030,11 @@ export const adminApi = {
   getGradingCounts: () => api.get<GradingCounts>('/admin/grading/queue/counts'),
   getGradingDetail: (sessionId: string) =>
     api.get<GradingDetail>(`/admin/grading/sessions/${sessionId}/detail`),
+  /** Admin-only signed URL for a practical deliverable attachment. */
+  getDeliverableUrl: (sessionId: string, taskId: string) =>
+    api.get<{ url: string }>(`/admin/grading/sessions/${sessionId}/deliverable`, {
+      params: { taskId },
+    }),
   publishResults: (sessionIds: string[]) =>
     api.post<{
       ok: true;
@@ -1514,6 +1519,23 @@ export function triggerBlobDownload(blob: Blob, filename: string): void {
   a.click();
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/** UTF-8 BOM CSV that Excel opens with correct Korean/English text. */
+export function exportTableCsv(
+  filename: string,
+  headers: string[],
+  rows: Array<Array<string | number | null | undefined>>,
+): void {
+  const esc = (v: string | number | null | undefined) => {
+    const s = v == null ? '' : String(v);
+    if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+    return s;
+  };
+  const lines = [headers.map(esc).join(','), ...rows.map((r) => r.map(esc).join(','))];
+  const blob = new Blob([`\uFEFF${lines.join('\n')}`], { type: 'text/csv;charset=utf-8' });
+  const name = filename.toLowerCase().endsWith('.csv') ? filename : `${filename}.csv`;
+  triggerBlobDownload(blob, name);
 }
 
 export default api;

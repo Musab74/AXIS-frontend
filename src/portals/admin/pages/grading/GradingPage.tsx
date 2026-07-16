@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, Download, UserPlus } from 'lucide-react';
+import { AlertTriangle, Download, Loader2, UserPlus } from 'lucide-react';
 import {
   Card,
   PageHeader,
@@ -26,10 +26,17 @@ import {
   GradingRow,
   PracticalState,
   ExpertRow,
+  exportTableCsv,
 } from '@admin/services/api';
+import { getStoredAdminUser } from '@admin/utils/auth';
 import { AxiosError } from 'axios';
 import GradingDetailModal from './GradingDetailModal';
+
 const PAGE_SIZE = 20;
+
+type CertFilter = 'all' | 'AXIS' | 'AXIS_C' | 'AXIS_H';
+type LevelFilter = 'all' | 'L1' | 'L2' | 'L3';
+type StateFilter = 'all' | PracticalState;
 
 const TABS: { id: GradingQueueTab; labelKey: string; warn?: boolean }[] = [
   { id: 'all', labelKey: 'grade.tab.all' },
@@ -84,6 +91,7 @@ function tabCount(c: GradingCounts | null, id: GradingQueueTab): number {
 
 export function GradingScreen() {
   const { t } = useI18n();
+  const adminUser = getStoredAdminUser();
   const [tab, setTab] = useState<GradingQueueTab>('all');
   const [rows, setRows] = useState<GradingRow[] | null>(null);
   const [counts, setCounts] = useState<GradingCounts | null>(null);
@@ -97,6 +105,11 @@ export function GradingScreen() {
   const [bulkAssignOpen, setBulkAssignOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [experts, setExperts] = useState<ExpertRow[]>([]);
+  const [exporting, setExporting] = useState(false);
+  const [certFilter, setCertFilter] = useState<CertFilter>('all');
+  const [levelFilter, setLevelFilter] = useState<LevelFilter>('all');
+  const [roundFilter, setRoundFilter] = useState<string>('all');
+  const [stateFilter, setStateFilter] = useState<StateFilter>('all');
 
   useEffect(() => {
     adminApi.getExperts().then((r) => setExperts(r.data)).catch(() => undefined);
@@ -189,6 +202,11 @@ export function GradingScreen() {
   }, [tab]);
 
   useEffect(() => {
+    setPage(1);
+    setSelectedIds(new Set());
+  }, [certFilter, levelFilter, roundFilter, stateFilter]);
+
+  useEffect(() => {
     let cancelled = false;
     Promise.all([adminApi.getGradingCounts(), adminApi.getGradingQueue('overdue')])
       .then(([c, o]) => {
@@ -202,12 +220,75 @@ export function GradingScreen() {
     };
   }, [tab, reloadKey]);
 
+  const filteredRows = useMemo(() => {
+    return (rows ?? []).filter((r) => {
+      if (certFilter !== 'all' && r.certType !== certFilter) return false;
+      if (levelFilter !== 'all' && r.level !== levelFilter) return false;
+      if (roundFilter !== 'all' && String(r.roundNumber ?? '') !== roundFilter) return false;
+      if (stateFilter !== 'all' && r.practicalState !== stateFilter) return false;
+      return true;
+    });
+  }, [rows, certFilter, levelFilter, roundFilter, stateFilter]);
+
+  const roundOptions = useMemo(() => {
+    const set = new Set<number>();
+    for (const r of rows ?? []) {
+      if (r.roundNumber != null) set.add(r.roundNumber);
+    }
+    return [...set].sort((a, b) => a - b);
+  }, [rows]);
+
   const showOverdue = overdueRows.length > 0;
-  const totalPages = Math.max(1, Math.ceil((rows?.length ?? 0) / PAGE_SIZE));
+  const totalPages = Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
   const pagedRows = useMemo(
-    () => (rows ?? []).slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE),
-    [rows, page],
+    () => filteredRows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE),
+    [filteredRows, safePage],
   );
+
+  const awaitingAssignment = (counts?.autoDone ?? 0) + (counts?.aiDone ?? 0);
+
+  const onExport = () => {
+    if (!filteredRows.length) {
+      pushToast(t('common.empty'), 'orange');
+      return;
+    }
+    setExporting(true);
+    try {
+      exportTableCsv(
+        `grading_${tab}.csv`,
+        [
+          'Session',
+          'Candidate',
+          'Cert',
+          'Level',
+          'Round',
+          'Written',
+          'PracticalState',
+          'Result',
+          'D-Day',
+          'Expert',
+          'Terminated',
+        ],
+        filteredRows.map((r) => [
+          r.sessionId,
+          r.candidate,
+          r.certType === 'AXIS_C' ? 'AXIS-C' : r.certType === 'AXIS_H' ? 'AXIS-H' : 'AXIS',
+          r.level,
+          r.roundNumber ?? '',
+          r.writtenScore ?? '',
+          r.practicalState,
+          r.terminated ? 'terminated' : r.result ?? '',
+          ddayLabel(r.daysToDue, r.overdue),
+          r.assignedExpert ?? '',
+          r.terminated ? 'Y' : 'N',
+        ]),
+      );
+      pushToast(t('res.exportOk'), 'green');
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const tabItems: TabItem<GradingQueueTab>[] = TABS.map((tt) => ({
     id: tt.id,
@@ -241,8 +322,13 @@ export function GradingScreen() {
                 </span>
               )}
             </Button>
-            <Button variant="secondary">
-              <Download className="w-3.5 h-3.5" /> {t('common.excel')}
+            <Button variant="secondary" onClick={onExport} disabled={exporting || rows === null}>
+              {exporting ? (
+                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+              ) : (
+                <Download className="w-3.5 h-3.5" />
+              )}{' '}
+              {t('common.excel')}
             </Button>
           </>
         }
@@ -256,7 +342,8 @@ export function GradingScreen() {
           unit={t('unit.cases')}
           meta={
             <>
-              <span className="font-medium text-[var(--blue)]">{counts?.aiDone ?? '—'}</span> {t('grade.kpi.review.sub')}
+              <span className="font-medium text-[var(--blue)]">{counts?.aiDone ?? '—'}</span>{' '}
+              {t('grade.kpi.review.sub')}
             </>
           }
         />
@@ -266,17 +353,19 @@ export function GradingScreen() {
           unit={t('unit.cases')}
           meta={
             <>
-              <span className="font-medium text-[var(--orange)]">{counts?.reviewing ?? '—'}</span> {t('grade.prac.reviewing')}
+              <span className="font-medium text-[var(--orange)]">{counts?.reviewing ?? '—'}</span>{' '}
+              {t('grade.prac.reviewing')}
             </>
           }
         />
         <SimpleKpiCard
           label={t('grade.kpi.expertAssigned')}
-          value={counts?.autoDone ?? '—'}
+          value={counts ? awaitingAssignment : '—'}
           unit={t('unit.cases')}
           meta={
             <>
-              <span className="font-medium text-[var(--gray-900)]">{counts?.autoDone ?? '—'}</span> {t('grade.tab.autoDone')}
+              <span className="font-medium text-[var(--gray-900)]">{counts ? awaitingAssignment : '—'}</span>{' '}
+              {t('grade.kpi.review.sub')}
             </>
           }
         />
@@ -286,7 +375,8 @@ export function GradingScreen() {
           unit={t('unit.cases')}
           meta={
             <>
-              <span className="font-medium text-[var(--green)]">{counts?.final ?? '—'}</span> {t('grade.prac.final')}
+              <span className="font-medium text-[var(--green)]">{counts?.final ?? '—'}</span>{' '}
+              {t('grade.prac.final')}
             </>
           }
         />
@@ -310,23 +400,57 @@ export function GradingScreen() {
       <Tabs tabs={tabItems} active={tab} onChange={setTab} />
 
       <FilterBar>
-        <Select>
-          <option>{t('common.cert')} {t('common.all')}</option>
-          <option>AXIS</option>
-          <option>AXIS-C</option>
-          <option>AXIS-H</option>
+        <Select
+          value={certFilter}
+          onChange={(e) => setCertFilter(e.target.value as CertFilter)}
+          aria-label={t('common.cert')}
+        >
+          <option value="all">
+            {t('common.cert')} {t('common.all')}
+          </option>
+          <option value="AXIS">AXIS</option>
+          <option value="AXIS_C">AXIS-C</option>
+          <option value="AXIS_H">AXIS-H</option>
         </Select>
-        <Select>
-          <option>{t('common.level')} {t('common.all')}</option>
-          <option>L3</option>
-          <option>L2</option>
-          <option>L1</option>
+        <Select
+          value={levelFilter}
+          onChange={(e) => setLevelFilter(e.target.value as LevelFilter)}
+          aria-label={t('common.level')}
+        >
+          <option value="all">
+            {t('common.level')} {t('common.all')}
+          </option>
+          <option value="L3">L3</option>
+          <option value="L2">L2</option>
+          <option value="L1">L1</option>
         </Select>
-        <Select>
-          <option>{t('common.round')} {t('common.all')}</option>
+        <Select
+          value={roundFilter}
+          onChange={(e) => setRoundFilter(e.target.value)}
+          aria-label={t('common.round')}
+        >
+          <option value="all">
+            {t('common.round')} {t('common.all')}
+          </option>
+          {roundOptions.map((n) => (
+            <option key={n} value={String(n)}>
+              {t('common.roundLabel', { n })}
+            </option>
+          ))}
         </Select>
-        <Select>
-          <option>{t('grade.filter.gradingState')} {t('common.all')}</option>
+        <Select
+          value={stateFilter}
+          onChange={(e) => setStateFilter(e.target.value as StateFilter)}
+          aria-label={t('grade.filter.gradingState')}
+        >
+          <option value="all">
+            {t('grade.filter.gradingState')} {t('common.all')}
+          </option>
+          <option value="auto">{t('grade.prac.auto')}</option>
+          <option value="ai_graded">{t('grade.prac.aiGraded')}</option>
+          <option value="expert_reviewing">{t('grade.prac.reviewing')}</option>
+          <option value="final">{t('grade.prac.final')}</option>
+          <option value="expert_disputed">{t('grade.prac.disputed')}</option>
         </Select>
       </FilterBar>
 
@@ -362,14 +486,14 @@ export function GradingScreen() {
             <tbody>
               {rows === null && (
                 <tr>
-                  <Td colSpan={11} className="!text-center !text-[var(--gray-400)] !py-12">
+                  <Td colSpan={12} className="!text-center !text-[var(--gray-400)] !py-12">
                     {t('common.loading')}
                   </Td>
                 </tr>
               )}
-              {rows !== null && rows.length === 0 && (
+              {rows !== null && filteredRows.length === 0 && (
                 <tr>
-                  <Td colSpan={11} className="!text-center !text-[var(--gray-400)] !py-12">
+                  <Td colSpan={12} className="!text-center !text-[var(--gray-400)] !py-12">
                     {t('common.empty')}
                   </Td>
                 </tr>
@@ -452,13 +576,20 @@ export function GradingScreen() {
             </tbody>
           </Table>
         </TableWrap>
-        <Pagination page={page} totalPages={totalPages} onChange={setPage} total={rows?.length} />
+        <Pagination
+          page={safePage}
+          totalPages={totalPages}
+          onChange={setPage}
+          total={filteredRows.length}
+        />
       </div>
 
       {detailSession && (
         <GradingDetailModal
           sessionId={detailSession.id}
           readOnly={detailSession.readOnly}
+          currentUserId={adminUser?.id}
+          currentUserRoles={adminUser?.roles}
           onClose={() => setDetailSession(null)}
           onFinalized={reload}
         />

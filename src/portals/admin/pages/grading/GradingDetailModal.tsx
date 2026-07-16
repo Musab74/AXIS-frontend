@@ -87,6 +87,9 @@ export default function GradingDetailModal({
   const [savingScores, setSavingScores] = useState(false);
   const [prescoring, setPrescoring] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Force-terminated (cheating) review — pass/fail decision on saved answers.
+  const [terminatedNote, setTerminatedNote] = useState('');
+  const [reviewingTerminated, setReviewingTerminated] = useState(false);
 
   const load = () => {
     adminApi
@@ -174,9 +177,44 @@ export default function GradingDetailModal({
   };
 
   const isAxisC = detail?.certType === 'AXIS_C';
-  // Force-terminated (unfinished) exam: answers are saved; MCQ is auto-graded;
-  // AI grading runs ONLY via the top "시험 채점" button. Never finalizable.
+  // Force-terminated (unfinished/cheating) exam: answers are saved; MCQ is
+  // auto-graded. The standard finalize flow does not apply — instead a reviewer
+  // makes an explicit pass/fail call via reviewTerminated (confirm = pass).
   const isTerminated = detail?.status === 'TERMINATED';
+
+  /** Pass/fail decision on a force-terminated exam. */
+  const reviewTerminated = async (decision: 'pass' | 'fail') => {
+    if (!detail) return;
+    setReviewingTerminated(true);
+    try {
+      const res = await adminApi.reviewTerminated(sessionId, decision, terminatedNote.trim() || undefined);
+      pushToast(
+        `강제 종료 시험 판정 완료 — ${res.data.passed ? '합격' : '불합격'}`,
+        res.data.passed ? 'green' : 'orange',
+      );
+      onFinalized?.();
+      onClose();
+    } catch (e) {
+      const msg = (e as AxiosError<{ message?: string | string[] }>)?.response?.data?.message;
+      pushToast(Array.isArray(msg) ? msg.join(', ') : msg || '판정 처리 실패', 'red');
+    } finally {
+      setReviewingTerminated(false);
+    }
+  };
+
+  const downloadDeliverable = async (taskId: string) => {
+    try {
+      const res = await adminApi.getDeliverableUrl(sessionId, taskId);
+      if (!res.data.url) {
+        pushToast('첨부 파일을 찾을 수 없습니다', 'orange');
+        return;
+      }
+      window.open(res.data.url, '_blank', 'noopener');
+    } catch (e) {
+      const msg = (e as AxiosError<{ message?: string | string[] }>)?.response?.data?.message;
+      pushToast(Array.isArray(msg) ? msg.join(', ') : msg || '다운로드에 실패했습니다', 'red');
+    }
+  };
 
   // Finalize is blocked for an EXPERT who is NOT the assigned expert,
   // unless the session has no assignment (open to any qualified expert).
@@ -253,15 +291,31 @@ export default function GradingDetailModal({
             <div className="flex items-start gap-2 text-sm text-rose-700 bg-rose-50 border border-rose-200 rounded-md p-2.5">
               <ShieldAlert className="w-4 h-4 mt-0.5 shrink-0" />
               <div>
-                <div className="font-medium">강제종료된 시험 (미완료)</div>
+                <div className="font-medium">강제종료된 시험 (부정행위 의심) — 합·불 판정 필요</div>
                 <div className="mt-0.5">
                   응시자는 이 시험을 이어서 볼 수 없습니다. 답안은 저장되어 있으며, 객관식은 자동
-                  채점되었습니다. AI 채점은 상단 [시험 채점] 버튼을 눌렀을 때만 실행되고, 점수는
-                  저장만 될 뿐 확정·합격 판정은 불가합니다.
+                  채점되었습니다. 저장된 답안과 감독 증거를 검토한 뒤, 아래 [합격 확정] 또는
+                  [불합격] 버튼으로 최종 판정하세요. 결과는 사라지지 않고 확정 처리됩니다.
                 </div>
                 {detail.failReason && (
                   <div className="mt-1 text-[12px] text-rose-600">사유: {detail.failReason}</div>
                 )}
+                <div className="mt-2.5">
+                  <label
+                    htmlFor="admin-terminated-note"
+                    className="block text-[12px] font-semibold text-rose-700 mb-1"
+                  >
+                    판정 사유 (선택)
+                  </label>
+                  <textarea
+                    id="admin-terminated-note"
+                    value={terminatedNote}
+                    onChange={(e) => setTerminatedNote(e.target.value)}
+                    rows={2}
+                    placeholder="합격/불합격 판정 근거를 남겨주세요 (감사 로그에 기록됩니다)"
+                    className="w-full border border-rose-200 rounded-lg px-2.5 py-1.5 text-sm bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-rose-400"
+                  />
+                </div>
               </div>
             </div>
           )}
@@ -335,15 +389,14 @@ export default function GradingDetailModal({
                         <div className="mt-2">
                           <div className="text-[11px] uppercase tracking-wide text-slate-400 mb-1">첨부파일</div>
                           {t.hasAttachment || t.attachmentUrl ? (
-                            <a
-                              href={`/api/v1/admin/grading/sessions/${sessionId}/deliverable?taskId=${t.taskId}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
+                            <button
+                              type="button"
+                              onClick={() => void downloadDeliverable(t.taskId)}
                               className="inline-flex items-center gap-1.5 text-[12px] text-[var(--blue)] hover:underline"
                             >
                               <Download className="w-3.5 h-3.5" />
                               파일 다운로드
-                            </a>
+                            </button>
                           ) : (
                             <span className="text-[12px] text-slate-400">파일 없음</span>
                           )}
@@ -426,6 +479,27 @@ export default function GradingDetailModal({
             >
               닫기
             </button>
+            {!readOnly && isTerminated && (
+              <>
+                <Button
+                  variant="secondary"
+                  onClick={() => reviewTerminated('fail')}
+                  disabled={reviewingTerminated || !detail}
+                  title="저장된 답안·증거를 근거로 불합격 처리합니다."
+                >
+                  {reviewingTerminated ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                  불합격 (반려)
+                </Button>
+                <Button
+                  onClick={() => reviewTerminated('pass')}
+                  disabled={reviewingTerminated || !detail}
+                  title="저장된 답안·증거를 근거로 합격 처리합니다 (수료증 발급)."
+                >
+                  {reviewingTerminated ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                  합격 확정 (승인)
+                </Button>
+              </>
+            )}
             {!readOnly && !isTerminated && (
               <>
                 {/* Save scores — available to any expert/admin; doesn't finalize */}

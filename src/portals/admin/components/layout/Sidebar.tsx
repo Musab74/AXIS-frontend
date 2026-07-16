@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { useI18n } from '@admin/i18n';
+import { hasAnyAdminRole } from '@admin/utils/auth';
 
 type NavItem = {
   id: string;
@@ -129,9 +130,15 @@ export function Sidebar({
   adminRole = 'super_admin',
 }: SidebarProps) {
   const { t } = useI18n();
+  const canSeeEligibilityRefunds = hasAnyAdminRole('SUPER_ADMIN', 'EXAM_ADMIN');
 
   const activeGroup =
     NAV_GROUPS.find((group) => group.items.some((item) => item.id === activeId)) ?? NAV_GROUPS[0];
+
+  const visibleItems = activeGroup.items.filter((item) => {
+    if (item.id === 'eligibility-refunds') return canSeeEligibilityRefunds;
+    return true;
+  });
 
   return (
     <aside
@@ -189,7 +196,7 @@ export function Sidebar({
 
         <nav className="flex-1 overflow-y-auto pl-3 pr-2 py-3 border-r border-[var(--gray-border)] ">
           <ul className="space-y-1">
-            {activeGroup.items.map((item) => {
+            {visibleItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeId === item.id;
               const showLive = item.live && examInProgress;

@@ -19,9 +19,9 @@ import { useI18n } from '@admin/i18n';
 import {
   adminApi,
   GradingRow,
-  ReportFilterParams,
-  triggerBlobDownload,
+  exportTableCsv,
 } from '@admin/services/api';
+import { getStoredAdminUser } from '@admin/utils/auth';
 import { AxiosError } from 'axios';
 import GradingDetailModal from './GradingDetailModal';
 
@@ -36,24 +36,6 @@ function certLabel(certType: string): string {
   return 'AXIS';
 }
 
-async function extractBlobError(e: unknown): Promise<string | null> {
-  const err = e as { response?: { data?: unknown } };
-  const data = err?.response?.data;
-  if (data instanceof Blob) {
-    try {
-      const parsed = JSON.parse(await data.text()) as { message?: string };
-      if (typeof parsed?.message === 'string') return parsed.message;
-    } catch {
-      /* ignore */
-    }
-  }
-  if (e instanceof AxiosError) {
-    const msg = e.response?.data?.message;
-    if (typeof msg === 'string') return msg;
-  }
-  return null;
-}
-
 function apiErrorMessage(e: unknown, fallback: string): string {
   if (e instanceof AxiosError) {
     const msg = e.response?.data?.message;
@@ -65,6 +47,7 @@ function apiErrorMessage(e: unknown, fallback: string): string {
 
 export default function ResultsPage() {
   const { t } = useI18n();
+  const adminUser = getStoredAdminUser();
   const [rows, setRows] = useState<GradingRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -172,20 +155,6 @@ export default function ResultsPage() {
     }
   };
 
-  const buildExportParams = (): ReportFilterParams => {
-    const params: ReportFilterParams = {};
-    if (certFilter !== 'all') params.certType = certFilter;
-    if (levelFilter !== 'all') params.level = levelFilter;
-    // When every visible row shares one year-round, scope the export.
-    const rounds = new Set(
-      filtered
-        .filter((r) => r.year != null && r.roundNumber != null)
-        .map((r) => `${r.year}-${r.roundNumber}`),
-    );
-    if (rounds.size === 1) params.round = [...rounds][0];
-    return params;
-  };
-
   const onExport = async () => {
     if (!filtered.length) {
       pushToast(t('res.exportEmpty'), 'orange');
@@ -193,16 +162,36 @@ export default function ResultsPage() {
     }
     setExporting(true);
     try {
-      const params = buildExportParams();
-      const res = await adminApi.downloadGradingStatus(params);
-      const roundPart = params.round ? `_${params.round}` : '';
-      const certPart = params.certType && params.certType !== 'all' ? `_${params.certType}` : '';
-      const levelPart = params.level ? `_${params.level}` : '';
-      triggerBlobDownload(res.data, `results${certPart}${levelPart}${roundPart}.xlsx`);
+      exportTableCsv(
+        `results${certFilter !== 'all' ? `_${certFilter}` : ''}${levelFilter !== 'all' ? `_${levelFilter}` : ''}.csv`,
+        [
+          'Candidate',
+          'Cert',
+          'Level',
+          'Round',
+          'Written',
+          'Practical',
+          'Total',
+          'Result',
+          'Published',
+          'SessionId',
+        ],
+        filtered.map((r) => [
+          r.candidate,
+          certLabel(r.certType),
+          r.level,
+          r.roundNumber ?? '',
+          r.writtenScore ?? '',
+          r.practicalScore ?? '',
+          r.totalScore ?? r.writtenScore ?? '',
+          r.result ?? 'pending',
+          r.announced ? 'published' : 'unpublished',
+          r.sessionId,
+        ]),
+      );
       pushToast(t('res.exportOk'), 'green');
-    } catch (e) {
-      const msg = (await extractBlobError(e)) || t('res.exportFailed');
-      pushToast(msg, 'red');
+    } catch {
+      pushToast(t('res.exportFailed'), 'red');
     } finally {
       setExporting(false);
     }
@@ -539,6 +528,8 @@ export default function ResultsPage() {
         <GradingDetailModal
           sessionId={detailSessionId}
           readOnly
+          currentUserId={adminUser?.id}
+          currentUserRoles={adminUser?.roles}
           onClose={() => setDetailSessionId(null)}
         />
       )}

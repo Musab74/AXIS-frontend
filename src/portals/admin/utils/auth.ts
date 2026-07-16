@@ -28,6 +28,12 @@ export function isSuperAdmin(): boolean {
   return getStoredAdminUser()?.roles.includes('SUPER_ADMIN') ?? false;
 }
 
+/** True when the stored admin has any of the given roles. */
+export function hasAnyAdminRole(...roles: string[]): boolean {
+  const stored = getStoredAdminUser()?.roles ?? [];
+  return roles.some((r) => stored.includes(r));
+}
+
 export function getStoredAdminUser(): StoredAdminUser | null {
   try {
     const raw = localStorage.getItem('adminUser');
