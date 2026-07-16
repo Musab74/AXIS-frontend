@@ -22,11 +22,26 @@ function fmtDate(iso: string | null): string {
   ).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 }
 
+function modeLabel(
+  t: (k: string, vars?: Record<string, string | number>) => string,
+  mode: string | null | undefined,
+  prefix: 'exm.ev.mode' | 'mon.mode',
+): string {
+  if (!mode) return '—';
+  const k = `${prefix}.${mode}`;
+  const tr = t(k);
+  return tr === k ? mode : tr;
+}
+
 /**
  * Modal viewer for a TERMINATED (or any) session's proctor record. Pulls
  * the timeline from /admin/monitor/sessions/:id and the signed AI evidence
  * URLs from /admin/sessions/:id/proctor/evidence — the same shape the live
  * MonitoringPage uses.
+ *
+ * Dispute-ready fields (checklist §9-6): termination mode, failReason,
+ * per-event triggerMode, and the exact (or stamped) wording shown to the
+ * candidate, alongside time / type / webcam+screen evidence.
  */
 export function EvidenceModal({ sessionId, candidateName, onClose }: EvidenceModalProps) {
   const { t } = useI18n();
@@ -101,6 +116,32 @@ export function EvidenceModal({ sessionId, candidateName, onClose }: EvidenceMod
                 <div className="text-xs text-slate-500">{t('exm.ev.terminatedAt')}</div>
                 <div className="text-slate-800 mt-0.5 tabular-nums">{fmtDate(detail.submittedAt)}</div>
               </div>
+              <div>
+                <div className="text-xs text-slate-500">{t('exm.ev.termMode')}</div>
+                <div className="mt-0.5">
+                  {detail.terminationMode ? (
+                    <StatusBadge
+                      tone={
+                        detail.terminationMode === 'IMMEDIATE'
+                          ? 'red'
+                          : detail.terminationMode === 'AFTER_WARNING'
+                            ? 'orange'
+                            : 'blue'
+                      }
+                    >
+                      {modeLabel(t, detail.terminationMode, 'exm.ev.mode')}
+                    </StatusBadge>
+                  ) : (
+                    <span className="text-slate-400">—</span>
+                  )}
+                </div>
+              </div>
+              <div className="col-span-2">
+                <div className="text-xs text-slate-500">{t('exm.ev.failReason')}</div>
+                <div className="text-slate-800 mt-0.5 text-[13px] leading-snug">
+                  {detail.failReason?.trim() || '—'}
+                </div>
+              </div>
             </div>
           )}
 
@@ -120,6 +161,16 @@ export function EvidenceModal({ sessionId, candidateName, onClose }: EvidenceMod
                   const webcamSrc = ev?.evidenceUrl ?? null;
                   const screenSrc = ev?.screenEvidenceUrl ?? null;
                   const audioSrc = ev?.videoClipUrl ?? null;
+                  const shown =
+                    p.candidateMessage?.trim() ||
+                    p.captionEn?.trim() ||
+                    p.captionKo?.trim() ||
+                    null;
+                  const typeLabel = (() => {
+                    const k = `evidence.type.${p.type}`;
+                    const tr = t(k);
+                    return tr === k ? p.type : tr;
+                  })();
                   return (
                     <li
                       key={p.id}
@@ -129,20 +180,37 @@ export function EvidenceModal({ sessionId, candidateName, onClose }: EvidenceMod
                         <span className="text-xs text-slate-400 tabular-nums w-20 mt-0.5">
                           {fmtTime(new Date(p.createdAt))}
                         </span>
-                        <StatusBadge tone={lvl === 'HIGH' ? 'red' : lvl === 'MEDIUM' ? 'orange' : 'blue'}>
-                          {(() => { const k = `severity.${lvl}`; const tr = t(k); return tr === k ? lvl : tr; })()}
-                        </StatusBadge>
-                        <span className="flex items-center gap-1.5 flex-1 text-slate-700">
-                          <span className="text-slate-400">
-                            {lvl === 'HIGH' ? (
-                              <ShieldAlert className="w-3.5 h-3.5" />
-                            ) : lvl === 'MEDIUM' ? (
-                              <AlertTriangle className="w-3.5 h-3.5" />
-                            ) : (
-                              <Radio className="w-3.5 h-3.5" />
-                            )}
+                        <div className="flex flex-col gap-1 shrink-0">
+                          <StatusBadge tone={lvl === 'HIGH' ? 'red' : lvl === 'MEDIUM' ? 'orange' : 'blue'}>
+                            {(() => { const k = `severity.${lvl}`; const tr = t(k); return tr === k ? lvl : tr; })()}
+                          </StatusBadge>
+                          {p.triggerMode && p.triggerMode !== 'INFO' && (
+                            <StatusBadge
+                              tone={p.triggerMode === 'IMMEDIATE' ? 'red' : 'orange'}
+                            >
+                              {modeLabel(t, p.triggerMode, 'exm.ev.mode')}
+                            </StatusBadge>
+                          )}
+                        </div>
+                        <span className="flex flex-col gap-1 flex-1 text-slate-700 min-w-0">
+                          <span className="flex items-center gap-1.5">
+                            <span className="text-slate-400 shrink-0">
+                              {lvl === 'HIGH' ? (
+                                <ShieldAlert className="w-3.5 h-3.5" />
+                              ) : lvl === 'MEDIUM' ? (
+                                <AlertTriangle className="w-3.5 h-3.5" />
+                              ) : (
+                                <Radio className="w-3.5 h-3.5" />
+                              )}
+                            </span>
+                            <span>{typeLabel}</span>
                           </span>
-                          <span>{p.captionEn ?? p.captionKo ?? (() => { const k = `evidence.type.${p.type}`; const tr = t(k); return tr === k ? p.type : tr; })()}</span>
+                          {shown && (
+                            <span className="text-[12px] text-slate-600 pl-5 leading-snug">
+                              <span className="text-slate-400">{t('exm.ev.shownToCandidate')}: </span>
+                              {shown}
+                            </span>
+                          )}
                         </span>
                       </div>
                       {webcamSrc || screenSrc || audioSrc ? (

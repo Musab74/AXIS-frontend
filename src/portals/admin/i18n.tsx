@@ -778,6 +778,12 @@ const dict: Dict = {
   "exm.ev.startedAt": { ko: "시작", en: "Started" },
   "exm.ev.terminatedAt": { ko: "종료", en: "Terminated" },
   "exm.ev.warnings": { ko: "경고 횟수", en: "Warning count" },
+  "exm.ev.failReason": { ko: "종료 사유", en: "Termination reason" },
+  "exm.ev.termMode": { ko: "종료 방식", en: "Termination mode" },
+  "exm.ev.mode.IMMEDIATE": { ko: "즉시 종료", en: "Immediate termination" },
+  "exm.ev.mode.AFTER_WARNING": { ko: "경고 후 종료", en: "After warning" },
+  "exm.ev.mode.INFO": { ko: "정보", en: "Info" },
+  "exm.ev.shownToCandidate": { ko: "응시자 표시 문구", en: "Shown to candidate" },
   "exm.ev.timeline": { ko: "ProctorLog 타임라인", en: "ProctorLog timeline" },
   "exm.ev.empty": { ko: "기록된 감독 이벤트가 없습니다", en: "No proctor events recorded" },
   "exm.ev.webcam": { ko: "웹캠", en: "Webcam" },
@@ -785,6 +791,10 @@ const dict: Dict = {
   "exm.ev.audio": { ko: "음성 클립", en: "Audio clip" },
   "exm.ev.noSnapshot": { ko: "이 이벤트에 대한 스냅샷이 캡처되지 않았습니다", en: "No snapshot captured for this event" },
   "exm.ev.close": { ko: "닫기", en: "Close" },
+  "mon.shownToCandidate": { ko: "응시자 표시", en: "Shown to candidate" },
+  "mon.mode.IMMEDIATE": { ko: "즉시", en: "Immediate" },
+  "mon.mode.AFTER_WARNING": { ko: "경고 후", en: "After warn" },
+  "mon.mode.INFO": { ko: "정보", en: "Info" },
 
   // Human-readable violation type labels (full sentences)
   "evidence.type.GAZE_AWAY": { ko: "모니터에서 시선을 돌렸습니다", en: "Looked away from the monitor" },

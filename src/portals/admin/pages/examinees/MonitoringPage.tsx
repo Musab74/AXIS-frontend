@@ -744,15 +744,41 @@ export function MonitoringScreen() {
                       const screenSrc = ev?.screenEvidenceUrl ?? null;
                       const hasWebcam = !!(webcamSrc || p.evidenceUrl);
                       const hasScreen = !!(screenSrc || p.screenEvidenceUrl);
+                      const shown =
+                        p.candidateMessage?.trim() ||
+                        p.captionEn?.trim() ||
+                        p.captionKo?.trim() ||
+                        null;
+                      const typeLabel = (() => {
+                        const k = `evidence.type.${p.type}`;
+                        const tr = t(k);
+                        return tr === k ? p.type : tr;
+                      })();
+                      const modeKey = p.triggerMode ? `mon.mode.${p.triggerMode}` : '';
+                      const modeTr = modeKey ? t(modeKey) : '';
                       return (
                         <li key={p.id} className="flex items-start gap-3 text-sm py-1.5 px-2 rounded-lg hover:bg-[var(--gray-50)]">
                           <span className="text-xs text-[var(--gray-400)] tabular-nums w-16 mt-0.5 shrink-0 font-mono-axis">{fmtTime(new Date(p.createdAt))}</span>
-                          <StatusBadge tone={lvl === 'HIGH' ? 'red' : lvl === 'MEDIUM' ? 'orange' : 'blue'}>{(() => { const k = `severity.${lvl}`; const tr = t(k); return tr === k ? lvl : tr; })()}</StatusBadge>
-                          <span className="flex items-center gap-1.5 flex-1 text-[var(--gray-700)] min-w-0">
-                            <span className="text-[var(--gray-400)] shrink-0">
-                              {lvl === 'HIGH' ? <ShieldAlert className="w-3.5 h-3.5" /> : lvl === 'MEDIUM' ? <AlertTriangle className="w-3.5 h-3.5" /> : <Radio className="w-3.5 h-3.5" />}
+                          <div className="flex flex-col gap-1 shrink-0">
+                            <StatusBadge tone={lvl === 'HIGH' ? 'red' : lvl === 'MEDIUM' ? 'orange' : 'blue'}>{(() => { const k = `severity.${lvl}`; const tr = t(k); return tr === k ? lvl : tr; })()}</StatusBadge>
+                            {p.triggerMode && p.triggerMode !== 'INFO' && (
+                              <StatusBadge tone={p.triggerMode === 'IMMEDIATE' ? 'red' : 'orange'}>
+                                {modeTr === modeKey ? p.triggerMode : modeTr}
+                              </StatusBadge>
+                            )}
+                          </div>
+                          <span className="flex flex-col gap-0.5 flex-1 text-[var(--gray-700)] min-w-0">
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              <span className="text-[var(--gray-400)] shrink-0">
+                                {lvl === 'HIGH' ? <ShieldAlert className="w-3.5 h-3.5" /> : lvl === 'MEDIUM' ? <AlertTriangle className="w-3.5 h-3.5" /> : <Radio className="w-3.5 h-3.5" />}
+                              </span>
+                              <span className="truncate">{typeLabel}</span>
                             </span>
-                            <span className="truncate">{p.captionEn ?? p.captionKo ?? (() => { const k = `evidence.type.${p.type}`; const tr = t(k); return tr === k ? p.type : tr; })()}</span>
+                            {shown && (
+                              <span className="text-[11px] text-[var(--gray-500)] truncate pl-5" title={shown}>
+                                {t('mon.shownToCandidate')}: {shown}
+                              </span>
+                            )}
                           </span>
                           {(hasWebcam || hasScreen) && (
                             <span className="flex items-center gap-1 shrink-0">

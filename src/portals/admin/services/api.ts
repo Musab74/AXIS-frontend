@@ -764,6 +764,9 @@ export interface LiveDetail {
   answered: number;
   total: number;
   warnings: number;
+  failReason?: string | null;
+  /** Session-level: IMMEDIATE vs AFTER_WARNING when terminated; null if not. */
+  terminationMode?: 'IMMEDIATE' | 'AFTER_WARNING' | 'INFO' | null;
   timerPaused?: boolean;
   events: {
     id: string;
@@ -780,6 +783,21 @@ export interface LiveDetail {
      * raw key — sign via the existing AI evidence endpoint when displaying.
      */
     screenEvidenceUrl: string | null;
+    /** Explicit dispute mode: immediate terminate vs after warnings. */
+    triggerMode?: 'IMMEDIATE' | 'AFTER_WARNING' | 'INFO';
+    /** Exact (or best-effort) wording shown / stamped for the candidate. */
+    candidateMessage?: string | null;
+    metadata?: {
+      kind?: string;
+      message?: string;
+      reason?: string;
+      terminate?: boolean;
+      source?: string;
+      strikes?: number;
+      candidateMessage?: string;
+      actorId?: string;
+      [key: string]: unknown;
+    };
   }[];
 }
 
