@@ -59,7 +59,10 @@ const NAV_GROUPS: NavGroup[] = [
     titleKey: 'side.group.registration',
     railLabelKey: 'side.group.registration',
     railIcon: CreditCard,
-    items: [{ id: 'registrations', labelKey: 'nav.registrations', icon: CreditCard }],
+    items: [
+      { id: 'registrations', labelKey: 'nav.registrations', icon: CreditCard },
+      { id: 'refund-requests', labelKey: 'nav.refundRequests', icon: RotateCcw },
+    ],
   },
   {
     id: 'taking',

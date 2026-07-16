@@ -90,23 +90,30 @@ export default function NoticesPage() {
 
   const handleSaveNotice = async () => {
     if (!editingNotice) return;
+    const title = editingNotice.title.trim();
+    const content = editingNotice.content.trim();
+    const tag = editingNotice.tag.trim();
+    if (!title || !content || !tag) {
+      pushToast(t('content.toast.required'), 'red');
+      return;
+    }
     setSaving(true);
     try {
       if (editingNotice.id) {
         await adminApi.updateNotice(editingNotice.id, {
-          tag: editingNotice.tag,
+          tag,
           tagType: editingNotice.tagType,
-          title: editingNotice.title,
-          content: editingNotice.content,
+          title,
+          content,
           status: editingNotice.status,
           pinned: editingNotice.pinned,
         });
       } else {
         await adminApi.createNotice({
-          tag: editingNotice.tag,
+          tag,
           tagType: editingNotice.tagType,
-          title: editingNotice.title,
-          content: editingNotice.content,
+          title,
+          content,
           status: editingNotice.status,
           pinned: editingNotice.pinned,
         });

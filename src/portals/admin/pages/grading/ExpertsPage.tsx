@@ -42,6 +42,11 @@ export default function ExpertsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [resetTarget, setResetTarget] = useState<ExpertRow | null>(null);
   const [resetting, setResetting] = useState(false);
+  const [issuedTempPassword, setIssuedTempPassword] = useState<{
+    name: string;
+    userId: string;
+    tempPassword: string;
+  } | null>(null);
   const superAdmin = isSuperAdmin();
 
   const load = () => {
@@ -103,11 +108,13 @@ export default function ExpertsPage() {
     setResetting(true);
     try {
       const res = await adminApi.resetUserPassword(resetTarget.id);
-      pushToast(
-        `"${resetTarget.name}" 비밀번호가 ${res.data.tempPassword}(으)로 초기화되었습니다. 다음 로그인 시 변경이 필요합니다.`,
-        'green',
-      );
+      setIssuedTempPassword({
+        name: resetTarget.name,
+        userId: resetTarget.userId,
+        tempPassword: res.data.tempPassword,
+      });
       setResetTarget(null);
+      pushToast(`"${resetTarget.name}" 비밀번호가 초기화되었습니다`, 'green');
     } catch (err) {
       const msg =
         (err as AxiosError<{ message?: string | string[] }>)?.response?.data?.message;
@@ -292,15 +299,37 @@ export default function ExpertsPage() {
         }
       >
         <p className="text-[14px] text-[var(--gray-700)]">
-          <b>{resetTarget?.name}</b>({resetTarget?.userId}) 계정의 비밀번호를 임시 비밀번호{' '}
-          <code className="rounded bg-[var(--gray-100)] px-1.5 py-0.5 font-mono text-[13px]">aa123</code>
-          (으)로 초기화합니다.
+          <b>{resetTarget?.name}</b>({resetTarget?.userId}) 계정의 비밀번호를 일회용 임시 비밀번호로
+          초기화합니다. 초기화 후 임시 비밀번호가 한 번 표시됩니다.
         </p>
         <ul className="mt-3 list-disc pl-5 text-[13px] text-[var(--gray-600)] space-y-1">
           <li>기존 로그인 세션은 즉시 종료됩니다.</li>
           <li>해당 채점위원은 임시 비밀번호로 로그인한 뒤 반드시 새 비밀번호로 변경해야 합니다.</li>
           <li>이 작업은 감사 로그에 기록됩니다.</li>
         </ul>
+      </Modal>
+
+      <Modal
+        open={!!issuedTempPassword}
+        onClose={() => setIssuedTempPassword(null)}
+        title="임시 비밀번호 발급됨"
+        width={440}
+        footer={
+          <Button variant="primary" onClick={() => setIssuedTempPassword(null)}>
+            확인
+          </Button>
+        }
+      >
+        <p className="text-[14px] text-[var(--gray-700)]">
+          <b>{issuedTempPassword?.name}</b>({issuedTempPassword?.userId}) 계정에 사용할 임시
+          비밀번호입니다. 안전한 채널로 전달한 뒤 이 화면을 닫으세요.
+        </p>
+        <p className="mt-4 rounded-lg bg-[var(--gray-100)] px-3 py-3 font-mono text-[16px] tracking-wide text-center select-all">
+          {issuedTempPassword?.tempPassword}
+        </p>
+        <p className="mt-3 text-[12px] text-[var(--gray-500)]">
+          다음 로그인 시 비밀번호 변경이 강제됩니다. 이 비밀번호는 다시 조회할 수 없습니다.
+        </p>
       </Modal>
     </div>
   );

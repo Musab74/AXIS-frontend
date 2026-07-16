@@ -24,7 +24,7 @@ import {
   Scatter,
   ZAxis,
 } from "recharts";
-import { Card, CardHeader, PageHeader, Button, FilterPill, StatusBadge, Tabs, SimpleKpiCard } from '@admin/components/shared/ui-kit';
+import { Card, CardHeader, PageHeader, Button, StatusBadge, Tabs, SimpleKpiCard } from '@admin/components/shared/ui-kit';
 import { useI18n } from '@admin/i18n';
 import {
   adminApi,
@@ -947,30 +947,9 @@ export function StatsScreen() {
       <PageHeader
         title={t("page.stats.title")}
         subtitle={t("page.stats.sub")}
-        actions={
-          <>
-            <Button variant="secondary">
-              <FileDown className="w-3.5 h-3.5" />
-              {t('stats.pdfReport')}
-            </Button>
-            <Button variant="secondary">
-              <FileSpreadsheet className="w-3.5 h-3.5" />
-              Excel
-            </Button>
-          </>
-        }
       />
 
       {error && <Card className="p-4 mb-4 border-rose-200 bg-rose-50/40 text-sm text-rose-700">{error}</Card>}
-
-      <div className="mb-4">
-        <div className="flex items-center gap-2 flex-wrap">
-          <FilterPill>{t("common.cert")}: {t("common.all")}</FilterPill>
-          <FilterPill>{t("common.level")}: {t("common.all")}</FilterPill>
-          <FilterPill>{t("common.round")}: {t("common.all")}</FilterPill>
-          <Button variant="blue" size="sm" className="ml-auto">{t("stats.filter.apply")}</Button>
-        </div>
-      </div>
 
       <Tabs tabs={tabs} active={tab} onChange={setTab} />
 

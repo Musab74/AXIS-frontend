@@ -4,6 +4,7 @@ export const ADMIN_PAGE_IDS = [
   'schedule',
   'question-bank',
   'registrations',
+  'refund-requests',
   'members',
   'examinee',
   'monitoring',

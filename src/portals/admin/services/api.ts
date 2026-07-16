@@ -923,18 +923,13 @@ export const adminApi = {
         mustChangePassword?: boolean;
       };
     };
-    try {
-      return await api.post<LoginResponse>('/auth/admin/login', { userId, password });
-    } catch (err: unknown) {
-      const status = (err as { response?: { status?: number } })?.response?.status;
-      if (status === 404) {
-        return api.post<LoginResponse>('/auth/login', { userId, password });
-      }
-      throw err;
-    }
+    return api.post<LoginResponse>('/auth/admin/login', { userId, password });
   },
 
   logout: () => api.post('/auth/logout'),
+
+  changePassword: (currentPassword: string, newPassword: string) =>
+    api.post<{ success: true }>('/auth/change-password', { currentPassword, newPassword }),
 
   getUsers: (params?: { q?: string; accountStatus?: string; role?: string; page?: number; limit?: number }) =>
     api.get<SearchUsersResult>('/admin/users', { params }),
@@ -970,8 +965,6 @@ export const adminApi = {
 
   grantAttempt: (registrationId: string, reason?: string) =>
     api.post<GrantAttemptResult>(`/admin/registrations/${registrationId}/grant-attempt`, { reason }),
-
-  getDashboard: () => api.get('/dashboard'),
 
   getSchedules: (params?: { certType?: CertType; level?: CertLevel; status?: ScheduleStatus }) =>
     api.get<ScheduleRow[]>('/schedules', { params }),
@@ -1081,14 +1074,29 @@ export const adminApi = {
   /**
    * Pass/fail decision on a force-terminated (cheating) exam. Confirm = pass
    * (certificate issued), reject = fail. Judged on the saved answers + evidence.
+   * Pass optional expert task scores so the total is graded before lock.
    */
-  reviewTerminated: (sessionId: string, decision: 'pass' | 'fail', note?: string) =>
+  reviewTerminated: (
+    sessionId: string,
+    decision: 'pass' | 'fail',
+    note?: string,
+    tasks?: Array<{
+      taskId: string;
+      expertScore: number;
+      expertNotes?: string;
+      deliverableReview?: 'accepted' | 'rejected';
+    }>,
+  ) =>
     api.post<{
       sessionId: string;
       passed: boolean;
       totalScore: number | null;
       certificate: { certNumber: string } | null;
-    }>(`/admin/grading/sessions/${sessionId}/review-terminated`, { decision, note }),
+    }>(`/admin/grading/sessions/${sessionId}/review-terminated`, {
+      decision,
+      note,
+      ...(tasks?.length ? { tasks } : {}),
+    }),
   assignExpert: (sessionId: string, expertId: string) =>
     api.post<{ ok: true }>(`/admin/grading/sessions/${sessionId}/assign`, { expertId }),
   assignBulk: (sessionIds: string[], expertId: string) =>

@@ -1,8 +1,5 @@
 import { io, Socket } from 'socket.io-client';
-
-const wsBase = (import.meta.env.VITE_WS_BASE_URL as string | undefined)?.trim().replace(/\/$/, '')
-  ?? (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/$/, '').replace(/\/api$/, '')
-  ?? '';
+import { resolveApiBase, resolveSocketOrigin } from '@/lib/socketOrigin';
 
 let socket: Socket | null = null;
 /**
@@ -66,8 +63,7 @@ async function refreshAccessToken(): Promise<boolean> {
   if (refreshInFlight) return refreshInFlight;
   const refreshToken = localStorage.getItem('adminRefreshToken');
   if (!refreshToken) return false;
-  const apiBase =
-    (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/$/, '') ?? '';
+  const apiBase = resolveApiBase();
   refreshInFlight = (async () => {
     try {
       const res = await fetch(`${apiBase}/auth/refresh`, {
@@ -96,6 +92,9 @@ export function getAdminSocket(): Socket {
   // Auth callback (vs static `auth: { token }`) is invoked by socket.io-client
   // on every connection AND every reconnection attempt, so a token refreshed
   // mid-session is automatically picked up without re-creating the socket.
+  // Same origin resolution as CBT/expert sockets: production SPA is on
+  // axisexam.com while Socket.IO lives on api.axisexam.com (not the SPA host).
+  const wsBase = resolveSocketOrigin();
   socket = io(`${wsBase}/admin`, {
     auth: (cb) => cb({ token: localStorage.getItem('adminToken') ?? '' }),
     transports: ['websocket', 'polling'],

@@ -13,6 +13,8 @@ export interface StoredAdminUser {
   userId: string;
   name: string;
   roles: string[];
+  /** Set after an admin password reset — portal must force a change. */
+  mustChangePassword?: boolean;
 }
 
 export const WRONG_CREDENTIALS_MSG =

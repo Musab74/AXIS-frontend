@@ -1043,6 +1043,7 @@ const dict: Dict = {
   "content.toast.saved": { ko: "저장되었습니다.", en: "Saved successfully." },
   "content.toast.deleted": { ko: "삭제되었습니다.", en: "Deleted successfully." },
   "content.toast.error": { ko: "오류가 발생했습니다.", en: "An error occurred." },
+  "content.toast.required": { ko: "제목·내용·태그를 입력해주세요.", en: "Title, content, and tag are required." },
   "content.confirm.delete": { ko: "정말 삭제하시겠습니까?", en: "Are you sure you want to delete this?" },
   "content.confirm.deleteTitle": { ko: "공지 삭제", en: "Delete notice" },
   "content.confirm.deleteBody": {

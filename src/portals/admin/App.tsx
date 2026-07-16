@@ -16,6 +16,7 @@ import QuestionBankPage from '@admin/pages/exam/QuestionBankPage';
 import InquiryPage from '@admin/pages/content/InquiryPage';
 import ExamineesScreen from '@admin/pages/examinees/ExamineesPage';
 import RegistrationsPage from '@admin/pages/registrations/RegistrationsPage';
+import RefundRequestsPage from '@admin/pages/registrations/RefundRequestsPage';
 import ResultsPage from '@admin/pages/grading/ResultsPage';
 import ExpertsPage from '@admin/pages/grading/ExpertsPage';
 import EligibilityPage from '@admin/pages/grading/EligibilityPage';
@@ -26,8 +27,9 @@ import MembersPage from '@admin/pages/members/MembersPage';
 import NotificationSettingsPage from '@admin/pages/settings/NotificationSettingsPage';
 import { adminApi, LiveSummary } from '@admin/services/api';
 import { disconnectAdminSocket, getAdminSocket } from '@admin/services/adminSocket';
-import { clearAdminSession, isAdminSessionValid } from '@admin/utils/auth';
+import { clearAdminSession, getStoredAdminUser, isAdminSessionValid } from '@admin/utils/auth';
 import { SessionSupersededModalHost } from '@admin/components/SessionSupersededModalHost';
+import { ForcePasswordChangeModal } from '@admin/components/ForcePasswordChangeModal';
 import { adminPageIdFromPath, adminPathForPage } from '@admin/adminRoutes';
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
@@ -129,6 +131,8 @@ function AdminShell() {
         return <EligibilityPage />;
       case 'eligibility-refunds':
         return <EligibilityRefundsPage />;
+      case 'refund-requests':
+        return <RefundRequestsPage />;
       case 'notices':
         return <NoticesPage />;
       case 'faq':
@@ -173,6 +177,7 @@ function AdminShell() {
         </div>
       </div>
       <ToastHost />
+      {getStoredAdminUser()?.mustChangePassword === true && <ForcePasswordChangeModal />}
     </div>
   );
 }

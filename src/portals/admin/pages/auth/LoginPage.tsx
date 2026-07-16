@@ -2,6 +2,7 @@ import { useEffect, useState, FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ShieldCheck, Loader2 } from 'lucide-react';
 import { adminApi, consumeAdminSessionSupersededMessage } from '@admin/services/api';
+import { ADMIN_PW_CHANGED_FLAG } from '@admin/components/ForcePasswordChangeModal';
 import {
   clearAdminSession,
   hasAdminRole,
@@ -14,6 +15,7 @@ export default function LoginPage() {
   const [userId, setUserId] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -25,6 +27,10 @@ export default function LoginPage() {
   useEffect(() => {
     const superseded = consumeAdminSessionSupersededMessage();
     if (superseded) setError(superseded);
+    if (sessionStorage.getItem(ADMIN_PW_CHANGED_FLAG) === '1') {
+      sessionStorage.removeItem(ADMIN_PW_CHANGED_FLAG);
+      setNotice('비밀번호가 변경되었습니다. 새 비밀번호로 다시 로그인해주세요.');
+    }
   }, []);
 
   const handleSubmit = async (e: FormEvent) => {
@@ -71,6 +77,12 @@ export default function LoginPage() {
 
         <h1 className="text-xl font-semibold text-slate-900 mb-1">로그인</h1>
         <p className="text-sm text-slate-500 mb-6">관리자 계정으로 로그인하세요</p>
+
+        {notice && (
+          <div className="mb-4 px-3 py-2 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm">
+            {notice}
+          </div>
+        )}
 
         {error && (
           <div className="mb-4 px-3 py-2 rounded-lg bg-rose-50 border border-rose-200 text-rose-700 text-sm">
