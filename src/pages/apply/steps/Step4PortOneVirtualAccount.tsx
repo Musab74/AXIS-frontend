@@ -183,12 +183,10 @@ export default function Step4PortOneVirtualAccount() {
     setError('');
     void (async () => {
       try {
-        const prefer =
-          payMethodChoice === 'card' ? 'CARD' : payMethodChoice === 'va' ? 'VBANK' : undefined;
         const res = await paymentApi.request(regId);
         if (cancelled) return;
         setReqData(res.data);
-        if (prefer === 'VBANK' && res.data.alreadyIssued && res.data.vbankNum) {
+        if (res.data.alreadyIssued && res.data.vbankNum) {
           setToast(t('apply.step4.vaAlreadyIssued' as never));
         }
       } catch (err: unknown) {
@@ -284,17 +282,11 @@ export default function Step4PortOneVirtualAccount() {
     };
 
     const isV1 = reqData.portoneVersion === 'v1';
-    const useCard = payMethodChoice === 'card';
 
     try {
       let paymentIdForConfirm: string;
 
       if (isV1) {
-        if (useCard) {
-          setToast(t('apply.step4.cardNeedsV2' as never));
-          setPaying(false);
-          return;
-        }
         const impCode = reqData.impCode?.trim();
         if (!impCode) {
           setToast('결제 설정 오류(imp_code). 고객센터로 문의해 주세요.');
@@ -320,60 +312,37 @@ export default function Step4PortOneVirtualAccount() {
           reqData.channelKey;
 
         // SDK typings incorrectly require extra method option objects on the union.
-        // PortOne rejects VA if any non-VA option is present; CARD must omit virtualAccount.
+        // PortOne rejects VA if any non-VA option is present.
         const res = await requestPayment(
-          (useCard
-            ? {
-                storeId,
-                channelKey,
-                paymentId: reqData.merchantId,
-                orderName: reqData.orderName,
-                totalAmount: reqData.totalAmount,
-                currency: reqData.currency,
-                payMethod: PaymentPayMethod.CARD,
-                customer: {
-                  fullName: customer.fullName,
-                  email: customer.email || undefined,
-                  phoneNumber: customer.phoneNumber || undefined,
-                },
-              }
-            : {
-                storeId,
-                channelKey,
-                paymentId: reqData.merchantId,
-                orderName: reqData.orderName,
-                totalAmount: reqData.totalAmount,
-                currency: reqData.currency,
-                payMethod: PaymentPayMethod.VIRTUAL_ACCOUNT,
-                customer: {
-                  fullName: customer.fullName,
-                  email: customer.email || undefined,
-                  phoneNumber: customer.phoneNumber || undefined,
-                },
-                virtualAccount: {
-                  bankCode,
-                  accountExpiry: { validHours: 24 },
-                },
-              }) as unknown as Parameters<typeof requestPayment>[0],
+          {
+            storeId,
+            channelKey,
+            paymentId: reqData.merchantId,
+            orderName: reqData.orderName,
+            totalAmount: reqData.totalAmount,
+            currency: reqData.currency,
+            payMethod: PaymentPayMethod.VIRTUAL_ACCOUNT,
+            customer: {
+              fullName: customer.fullName,
+              email: customer.email || undefined,
+              phoneNumber: customer.phoneNumber || undefined,
+            },
+            virtualAccount: {
+              bankCode,
+              accountExpiry: { validHours: 24 },
+            },
+          } as unknown as Parameters<typeof requestPayment>[0],
         );
 
         if (!res) {
-          setError(
-            useCard
-              ? t('apply.step4.payFailed' as never)
-              : '가상계좌 발급에 실패했습니다. 다시 시도해 주세요.',
-          );
+          setError('가상계좌 발급에 실패했습니다. 다시 시도해 주세요.');
           setPaying(false);
           return;
         }
 
         if (res.code) {
           console.warn('PortOne requestPayment error', res.message, res.code);
-          setToast(
-            useCard
-              ? `${t('apply.step4.payFailed' as never)}: ${res.message ?? ''}`.trim()
-              : `가상계좌 발급 실패: ${res.message ?? '알 수 없는 오류'}`,
-          );
+          setToast(`가상계좌 발급 실패: ${res.message ?? '알 수 없는 오류'}`);
           setPaying(false);
           return;
         }
@@ -514,7 +483,6 @@ export default function Step4PortOneVirtualAccount() {
 
       <div className="mb-4 grid grid-cols-1 gap-2 sm:flex sm:flex-wrap">
         {([
-          { id: 'card' as const, label: t('apply.step4.method.card' as never) },
           { id: 'va' as const, label: t('apply.kcp.method.va' as never) },
           ...(demoPayAvailable
             ? [{ id: 'demo' as const, label: t('apply.step4.testUserToggle' as never) }]
@@ -539,12 +507,6 @@ export default function Step4PortOneVirtualAccount() {
           );
         })}
       </div>
-
-      {payMethodChoice === 'card' && (
-        <InfoCallout tone="blue" className="mb-4">
-          <p>{t('apply.step4.cardRefundHint' as never)}</p>
-        </InfoCallout>
-      )}
 
       {payMethodChoice === 'demo' && (
         <div
