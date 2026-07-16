@@ -89,7 +89,8 @@ export type GradingQueueTab =
   | 'ai_graded'
   | 'reviewing'
   | 'final'
-  | 'overdue';
+  | 'overdue'
+  | 'terminated';
 
 export type PracticalState =
   | 'auto'
@@ -113,6 +114,8 @@ export interface GradingRow {
   assignedExpertId: string | null;
   assignedExpert: string | null;
   mandatoryReview: boolean;
+  /** Force-terminated (cheating/unfinished) exam — reviewed via reviewTerminated. */
+  terminated: boolean;
 }
 
 export type DeliverableReview = 'accepted' | 'rejected';
@@ -191,7 +194,7 @@ export interface GradingDetail {
   totalScore: number | null;
   passed: boolean | null;
   mandatoryReview: boolean;
-  /** v2.0 rule version stamped on the session ("1.1" | "2.0"). */
+  /** v2.0 rule version stamped on the session ("1.1" | "2.0" | "3.0"). */
   specVersion: string;
   /** v2.0 decision state machine. Null for legacy v1.1 sessions. */
   decisionStatus: DecisionStatus;
@@ -202,6 +205,20 @@ export interface GradingDetail {
   cheatingSuspect: boolean;
   proctoringEvents: GradingProctorEvent[];
   tasks: GradingTaskDetail[];
+  scoringHistory?: ScoringHistoryEntry[];
+}
+
+export interface ScoringHistoryEntry {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  scoringRound: 'FIRST' | 'SECOND' | 'ADJUST';
+  total: number;
+  raterId: string;
+  raterName: string;
+  confidenceComment: string | null;
+  finalDecision: string | null;
+  createdAt: string;
 }
 
 export interface AiEvidenceItem {
@@ -232,6 +249,7 @@ export interface GradingCounts {
   reviewing: number;
   final: number;
   overdue: number;
+  terminated: number;
 }
 
 type LoginResponse = {
@@ -308,6 +326,17 @@ export const expertApi = {
     api.post<{ sessionId: string; decisionStatus: string; passed: boolean; totalScore: number | null }>(
       `/admin/grading/sessions/${sessionId}/confirm`,
     ),
+  /**
+   * Pass/fail decision on a force-terminated (cheating) exam. Confirm = pass
+   * (certificate issued), reject = fail. The saved answers + evidence stay put.
+   */
+  reviewTerminated: (sessionId: string, decision: 'pass' | 'fail', note?: string) =>
+    api.post<{
+      sessionId: string;
+      passed: boolean;
+      totalScore: number | null;
+      certificate: { certNumber: string } | null;
+    }>(`/admin/grading/sessions/${sessionId}/review-terminated`, { decision, note }),
 
   // ── L1 eligibility review (AXIS-C L1) ───────────────────────
   getEligibilityQueue: (status?: 'PENDING' | 'APPROVED' | 'REJECTED') =>

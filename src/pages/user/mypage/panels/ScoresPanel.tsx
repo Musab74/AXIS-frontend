@@ -23,6 +23,17 @@ import { openProtectedPdf } from '@/utils/openProtectedPdf';
 
 const TABLE_WRAP = 'hidden md:block w-full overflow-x-auto border-t-2 border-ink mt-4 mb-2';
 
+function formatAnnouncedColumn(
+  r: ResultDto,
+  t: (key: 'mypage.scores.pending' | 'mypage.scores.awaitingAnnouncement') => string,
+): string {
+  if (r.announcedAt) return formatExamDate(r.announcedAt);
+  if (r.status === 'SUBMITTED' || (r.status === 'GRADED' && r.announced === false)) {
+    return t('mypage.scores.awaitingAnnouncement');
+  }
+  return '—';
+}
+
 function ResultsSection({ data }: { data: DashboardDto }) {
   const { t, lang } = useI18n();
   const navigate = useNavigate();
@@ -91,11 +102,7 @@ function ResultsSection({ data }: { data: DashboardDto }) {
               data.results.map((r) => {
                 const badge = resultStatusBadge(r);
                 const examDateText = r.submittedAt ? formatExamDate(r.submittedAt) : '—';
-                const announcedText = r.gradedAt
-                  ? formatExamDate(r.gradedAt)
-                  : r.status === 'SUBMITTED'
-                    ? t('mypage.scores.pending')
-                    : '—';
+                const announcedText = formatAnnouncedColumn(r, t);
                 const attemptSuffix = formatAttemptSuffix(r.attemptNo, lang);
 
                 return (
@@ -144,11 +151,7 @@ function ResultsSection({ data }: { data: DashboardDto }) {
           data.results.map((r) => {
             const badge = resultStatusBadge(r);
             const examDateText = r.submittedAt ? formatExamDate(r.submittedAt) : '—';
-            const announcedText = r.gradedAt
-              ? formatExamDate(r.gradedAt)
-              : r.status === 'SUBMITTED'
-                ? t('mypage.scores.pending')
-                : '—';
+            const announcedText = formatAnnouncedColumn(r, t);
             const attemptSuffix = formatAttemptSuffix(r.attemptNo, lang);
             return (
               <div key={r.id} className="border-b border-border py-4">

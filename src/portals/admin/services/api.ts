@@ -560,6 +560,20 @@ export interface GradingDetail {
   proctorWarnings?: number;
   cheatingSuspect?: boolean;
   tasks: GradingTaskDetail[];
+  scoringHistory?: ScoringHistoryEntry[];
+}
+
+export interface ScoringHistoryEntry {
+  id: string;
+  taskId: string;
+  taskTitle: string;
+  scoringRound: 'FIRST' | 'SECOND' | 'ADJUST';
+  total: number;
+  raterId: string;
+  raterName: string;
+  confidenceComment: string | null;
+  finalDecision: string | null;
+  createdAt: string;
 }
 
 export interface FinalizeResult {

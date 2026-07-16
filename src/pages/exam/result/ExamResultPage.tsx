@@ -210,6 +210,12 @@ export default function ExamResultPage() {
             <div className={`${EXAM.text.sectionTitle} ${EXAM.color.danger} mb-2`}>
               {t('result.terminatedTitle')}
             </div>
+            <p className={`${EXAM.text.bodySm} ${EXAM.color.body} mb-3 max-w-lg mx-auto`}>
+              {t('result.terminatedDefault')}
+            </p>
+            <p className={`${EXAM.text.helper} ${EXAM.color.muted} mb-2 max-w-lg mx-auto`}>
+              {t('result.terminatedAdminReview')}
+            </p>
             <div className="flex flex-wrap gap-3 justify-center mt-7">
               <button onClick={() => navigate(`/cbt/sessions/${r.id}/evidence`)} className={`${EXAM.button.primaryLg} ${EXAM.text.button} w-auto! px-6 bg-status-danger!`}>
                 {t('result.viewEvidence')}

@@ -462,6 +462,40 @@ export default function GradingDetailModal({
               })}
             </>
           )}
+
+          {detail?.scoringHistory && detail.scoringHistory.length > 0 && (
+            <div className="px-6 pb-4">
+              <div className="text-[12px] font-semibold uppercase tracking-wide text-slate-500 mb-2">
+                점수 변경 이력
+              </div>
+              <div className="border border-slate-200 rounded-lg overflow-hidden">
+                <table className="w-full text-[12px]">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>
+                      <th className="text-left px-3 py-2 font-medium">시각</th>
+                      <th className="text-left px-3 py-2 font-medium">라운드</th>
+                      <th className="text-left px-3 py-2 font-medium">과제</th>
+                      <th className="text-left px-3 py-2 font-medium">채점자</th>
+                      <th className="text-right px-3 py-2 font-medium">점수</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.scoringHistory.map((h) => (
+                      <tr key={h.id} className="border-t border-slate-100">
+                        <td className="px-3 py-2 text-slate-600 whitespace-nowrap">
+                          {new Date(h.createdAt).toLocaleString()}
+                        </td>
+                        <td className="px-3 py-2">{h.scoringRound}</td>
+                        <td className="px-3 py-2">{h.taskTitle}</td>
+                        <td className="px-3 py-2">{h.raterName}</td>
+                        <td className="px-3 py-2 text-right font-medium">{h.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between gap-2 px-6 py-4 border-t border-slate-200 sticky bottom-0 bg-white">

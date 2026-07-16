@@ -48,6 +48,9 @@ export interface RegistrationDto {
   hasSupportDoc?: boolean;
   /** True when a 100% eligibility refund is awaiting admin approval. */
   eligibilityRefundRequested?: boolean;
+  /** True when a candidate refund request (with bank account) is awaiting admin confirmation. */
+  refundRequested?: boolean;
+  refundRequestStatus?: 'PENDING' | 'APPROVED' | 'REJECTED' | null;
   fee: number | null;
   attemptUsed: number;
   maxAttempts: number;
@@ -58,6 +61,7 @@ export interface RegistrationDto {
     year: number;
     examDate: string;
     examStartTime: string;
+    registrationEnd?: string;
     venue: string;
     status: string;
   };
@@ -86,6 +90,8 @@ export interface ResultDto {
   submittedAt: string | null;
   startedAt: string | null;
   gradedAt: string | null;
+  announced?: boolean;
+  announcedAt: string | null;
   writtenScore: number | null;
   practicalScore: number | null;
   totalScore: number | null;

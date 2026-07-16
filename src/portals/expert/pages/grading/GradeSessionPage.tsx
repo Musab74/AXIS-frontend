@@ -155,6 +155,10 @@ export default function GradeSessionPage() {
   const [savingDraft, setSavingDraft] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Force-terminated (cheating) review — the expert makes a pass/fail call on
+  // the saved answers + proctoring evidence.
+  const [terminatedNote, setTerminatedNote] = useState('');
+  const [reviewingTerminated, setReviewingTerminated] = useState(false);
 
   const hydrate = useCallback((d: GradingDetail) => {
     setDetail(d);
@@ -191,8 +195,9 @@ export default function GradeSessionPage() {
       );
   }, [sessionId, hydrate]);
 
-  const isV2 = detail?.specVersion === '2.0';
+  const isV2 = detail?.specVersion !== '1.1';
   const isL3 = detail?.level === 'L3';
+  const isTerminated = detail?.status === 'TERMINATED';
   const readOnly =
     detail?.status === 'GRADED' ||
     detail?.decisionStatus === 'CONFIRMED_PASS' ||
@@ -276,6 +281,28 @@ export default function GradeSessionPage() {
       pushToast(Array.isArray(msg) ? msg.join(', ') : msg || '결정 확정 실패', 'red');
     } finally {
       setConfirming(false);
+    }
+  };
+
+  /**
+   * Pass/fail decision on a force-terminated (cheating) exam. Confirm = pass
+   * (certificate issued), reject = fail. Judged on the saved answers + evidence.
+   */
+  const reviewTerminated = async (decision: 'pass' | 'fail') => {
+    if (!detail) return;
+    setReviewingTerminated(true);
+    try {
+      const res = await expertApi.reviewTerminated(sessionId, decision, terminatedNote.trim() || undefined);
+      pushToast(
+        `강제 종료 시험 판정 완료 — ${res.data.passed ? '합격' : '불합격'}`,
+        res.data.passed ? 'green' : 'orange',
+      );
+      navigate('/');
+    } catch (e) {
+      const msg = (e as AxiosError<{ message?: string | string[] }>)?.response?.data?.message;
+      pushToast(Array.isArray(msg) ? msg.join(', ') : msg || '판정 처리 실패', 'red');
+    } finally {
+      setReviewingTerminated(false);
     }
   };
 
@@ -390,6 +417,24 @@ export default function GradeSessionPage() {
               <span className="font-semibold text-indigo-700">확인</span>을 눌러 적용하거나 직접 수정하세요.
             </p>
           </Card>
+
+          {isTerminated && (
+            <Card className="p-4 mb-6 border-rose-200 bg-rose-50/50">
+              <div className="flex items-start gap-2.5">
+                <ShieldAlert className="w-5 h-5 mt-0.5 shrink-0 text-rose-600" />
+                <div>
+                  <div className="text-[13px] font-semibold text-rose-800">
+                    강제 종료된 시험 (부정행위 의심) — 합·불 판정 필요
+                  </div>
+                  <div className="mt-1 text-[13px] text-rose-700 leading-relaxed">
+                    이 응시자는 부정행위 등으로 시험이 강제 종료되었습니다. 저장된 답안과 아래 감독
+                    증거를 검토한 뒤, 최종 합격(승인) 또는 불합격(반려)을 판정하세요. 판정 후 결과는
+                    사라지지 않고 확정 처리됩니다.
+                  </div>
+                </div>
+              </div>
+            </Card>
+          )}
 
           <ProctorEvidencePanel
             sessionId={detail.sessionId}
@@ -725,6 +770,59 @@ export default function GradeSessionPage() {
             })}
           </div>
 
+          {isTerminated && (
+            <div className="mt-8">
+              <label
+                htmlFor="terminated-note"
+                className="block text-[12px] font-semibold text-slate-600 mb-1.5"
+              >
+                판정 사유 (선택)
+              </label>
+              <textarea
+                id="terminated-note"
+                value={terminatedNote}
+                onChange={(e) => setTerminatedNote(e.target.value)}
+                rows={2}
+                placeholder="합격/불합격 판정 근거를 남겨주세요 (감사 로그에 기록됩니다)"
+                className="w-full border border-slate-300 rounded-xl px-4 py-3 text-[14px] text-slate-900 placeholder:text-slate-400 focus:outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/15 leading-relaxed"
+              />
+            </div>
+          )}
+
+          {detail.scoringHistory && detail.scoringHistory.length > 0 && (
+            <Card className="p-4 mt-8">
+              <div className="text-[12px] font-semibold uppercase tracking-wider text-[var(--gray-500)] mb-3">
+                점수 변경 이력
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-[12px]">
+                  <thead>
+                    <tr className="text-left text-[var(--gray-500)] border-b border-[var(--gray-200)]">
+                      <th className="pb-2 pr-3 font-medium">시각</th>
+                      <th className="pb-2 pr-3 font-medium">라운드</th>
+                      <th className="pb-2 pr-3 font-medium">과제</th>
+                      <th className="pb-2 pr-3 font-medium">채점자</th>
+                      <th className="pb-2 text-right font-medium">점수</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {detail.scoringHistory.map((h) => (
+                      <tr key={h.id} className="border-b border-[var(--gray-100)] last:border-0">
+                        <td className="py-2 pr-3 text-[var(--gray-600)] whitespace-nowrap">
+                          {new Date(h.createdAt).toLocaleString()}
+                        </td>
+                        <td className="py-2 pr-3">{h.scoringRound}</td>
+                        <td className="py-2 pr-3">{h.taskTitle}</td>
+                        <td className="py-2 pr-3">{h.raterName}</td>
+                        <td className="py-2 text-right font-medium">{h.total}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          )}
+
           <div className="flex items-center justify-end gap-2 mt-8 pb-4">
             <button
               onClick={() => navigate(-1)}
@@ -732,7 +830,31 @@ export default function GradeSessionPage() {
             >
               닫기
             </button>
-            {!readOnly && (
+            {isTerminated ? (
+              <>
+                <Button
+                  variant="danger"
+                  onClick={() => reviewTerminated('fail')}
+                  disabled={reviewingTerminated}
+                >
+                  {reviewingTerminated ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <XCircle className="w-4 h-4" />
+                  )}
+                  불합격 (반려)
+                </Button>
+                <Button onClick={() => reviewTerminated('pass')} disabled={reviewingTerminated}>
+                  {reviewingTerminated ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <CheckCircle2 className="w-4 h-4" />
+                  )}
+                  합격 확정 (승인)
+                </Button>
+              </>
+            ) : (
+              !readOnly && (
               <>
                 <button
                   type="button"
@@ -758,6 +880,7 @@ export default function GradeSessionPage() {
                   </Button>
                 )}
               </>
+              )
             )}
           </div>
         </>

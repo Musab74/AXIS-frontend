@@ -160,6 +160,7 @@ export const ko = {
   'mypage.scores.partialPass': '부분 합격',
   'mypage.scores.fail': '불합격',
   'mypage.scores.pending': '대기',
+  'mypage.scores.awaitingAnnouncement': '발표 대기',
   'mypage.scores.detail': '상세 점수 보기',
   'mypage.scores.appeal': '점수 이의신청',
   'mypage.scores.evidence': '감독영상 보기',
@@ -566,6 +567,8 @@ export const ko = {
   'result.terminatedTitle': '시험이 강제 종료되었습니다',
   'result.terminatedDefault':
     '감독 정책 위반이 감지되어 본 시험은 자동으로 종료되었습니다. 이의 제기 시 AI 증거 자료를 확인하실 수 있습니다.',
+  'result.terminatedAdminReview':
+    '합격 여부는 자동으로 판정되지 않습니다. 관리자 검토 후 결과가 통지됩니다.',
   'result.viewEvidence': '감독 기록 보기 →',
   'result.practicalNoteEta': '객관식 답안은 자동 채점 완료. 실기/서술형 결과는 약 ',
   'result.practicalNoteEtaTail': '일 이내에 제공됩니다.',
@@ -745,6 +748,13 @@ export const ko = {
   'extdisp.checking': '확인 중…',
   'extdisp.recheck': '모니터를 분리했습니다 — 다시 확인',
   'extdisp.permError': '권한 오류',
+
+  // ── ConnectionTimeoutOverlay ──────────────────────────
+  'conn.title': '인터넷 연결이 끊어졌습니다',
+  'conn.body': '네트워크 연결이 복구되기를 기다리는 중입니다. 연결이 복구되면 시험이 자동으로 이어집니다.',
+  'conn.countdown': '{seconds}초 후 시험이 자동으로 종료되고 제출됩니다.',
+  'conn.finishing': '연결 시간이 초과되어 시험을 종료하고 답안을 제출하는 중입니다…',
+  'conn.recordedNote': '이 연결 끊김은 시험 감독 시스템에 자동으로 기록되며, 종료 시점의 화면이 캡처됩니다.',
 
   // ── DemoPage ──────────────────────────────────────────
   'demo.picker.title': '체험할 시험 선택',
@@ -1743,6 +1753,27 @@ export const ko = {
   'sec.registrations.act.cancelling': '취소 중…',
   'sec.registrations.act.cancel': '접수 취소',
   'sec.registrations.act.cancelRefund': '취소·환불',
+  'sec.registrations.act.requestRefund': '환불 신청',
+  'sec.registrations.status.refundReview': '환불 심사중',
+
+  // 환불 신청 모달 (응시자가 계좌 입력 → 관리자 확인)
+  'refund.req.title': '환불 신청',
+  'refund.req.expectedLabel': '예상 환불 금액',
+  'refund.req.policyNote':
+    '환불 금액은 환불 규정에 따라 산정되며 관리자 확인 후 확정됩니다. 카드 결제는 원 결제 카드로, 가상계좌·계좌이체 결제는 아래 입력하신 계좌로 환불됩니다.',
+  'refund.req.bankLabel': '은행',
+  'refund.req.selectBank': '은행 선택',
+  'refund.req.accountLabel': '계좌번호',
+  'refund.req.holderLabel': '예금주명',
+  'refund.req.submit': '환불 신청',
+  'refund.req.submitting': '신청 중…',
+  'refund.req.cancel': '취소',
+  'refund.req.ok': '환불 신청이 접수되었습니다. 관리자가 확인 후 처리해 드립니다.',
+  'refund.req.fail': '환불 신청에 실패했습니다. 잠시 후 다시 시도해 주세요.',
+  'refund.req.validation': '은행을 선택하고 계좌번호와 예금주명을 입력해 주세요.',
+  'refund.req.tier.FULL': '100% 환불',
+  'refund.req.tier.HALF': '50% 환불',
+  'refund.req.tier.NONE': '환불 불가 (기간 경과)',
 
   // ApplyCompletePage
   'apply.complete.copied': '복사되었습니다!',

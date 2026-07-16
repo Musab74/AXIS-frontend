@@ -160,6 +160,7 @@ export const en = {
   'mypage.scores.partialPass': 'Partial pass',
   'mypage.scores.fail': 'Fail',
   'mypage.scores.pending': 'Pending',
+  'mypage.scores.awaitingAnnouncement': 'Awaiting announcement',
   'mypage.scores.detail': 'Score breakdown',
   'mypage.scores.appeal': 'Score appeal',
   'mypage.scores.evidence': 'Proctor recording',
@@ -566,6 +567,8 @@ export const en = {
   'result.terminatedTitle': 'Exam was terminated',
   'result.terminatedDefault':
     'A proctor policy violation was detected and the exam was terminated automatically. You may review the AI evidence on appeal.',
+  'result.terminatedAdminReview':
+    'Pass/fail is not determined automatically. An administrator will review your session and you will be notified of the outcome.',
   'result.viewEvidence': 'View proctor record →',
   'result.practicalNoteEta': 'MCQ answers were auto-scored. Practical/essay results will be available within about ',
   'result.practicalNoteEtaTail': ' days.',
@@ -745,6 +748,13 @@ export const en = {
   'extdisp.checking': 'Checking…',
   'extdisp.recheck': 'Disconnected the monitor — re-check',
   'extdisp.permError': 'Permission error',
+
+  // ── ConnectionTimeoutOverlay ──────────────────────────
+  'conn.title': 'Internet connection lost',
+  'conn.body': 'Waiting for your network connection to recover. The exam will resume automatically once you are back online.',
+  'conn.countdown': 'The exam will be finished and submitted automatically in {seconds}s.',
+  'conn.finishing': 'Connection timed out — finishing the exam and submitting your answers…',
+  'conn.recordedNote': 'This disconnection is recorded automatically by the proctoring system, and a screenshot is captured at finish.',
 
   // ── DemoPage ──────────────────────────────────────────
   'demo.picker.title': 'Choose a demo exam',
@@ -1711,6 +1721,27 @@ export const en = {
   'sec.registrations.act.cancelling': 'Cancelling…',
   'sec.registrations.act.cancel': 'Cancel registration',
   'sec.registrations.act.cancelRefund': 'Cancel & refund',
+  'sec.registrations.act.requestRefund': 'Request refund',
+  'sec.registrations.status.refundReview': 'Refund under review',
+
+  // Refund request modal (candidate submits bank account → admin confirms)
+  'refund.req.title': 'Request a refund',
+  'refund.req.expectedLabel': 'Expected refund',
+  'refund.req.policyNote':
+    'The refund amount follows the refund policy and is confirmed by the administrator. Card payments are returned to the original card; virtual-account/transfer payments are wired to the account below.',
+  'refund.req.bankLabel': 'Bank',
+  'refund.req.selectBank': 'Select a bank',
+  'refund.req.accountLabel': 'Account number',
+  'refund.req.holderLabel': 'Account holder name',
+  'refund.req.submit': 'Submit request',
+  'refund.req.submitting': 'Submitting…',
+  'refund.req.cancel': 'Cancel',
+  'refund.req.ok': 'Your refund request has been submitted. The administrator will review and process it.',
+  'refund.req.fail': 'Could not submit the refund request. Please try again.',
+  'refund.req.validation': 'Please select a bank and enter the account number and holder name.',
+  'refund.req.tier.FULL': '100% refund',
+  'refund.req.tier.HALF': '50% refund',
+  'refund.req.tier.NONE': 'No refund (past deadline)',
 
   // ApplyCompletePage
   'apply.complete.copied': 'Copied!',
