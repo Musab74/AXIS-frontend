@@ -18,6 +18,7 @@ import ExamineesScreen from '@admin/pages/examinees/ExamineesPage';
 import RegistrationsPage from '@admin/pages/registrations/RegistrationsPage';
 import RefundRequestsPage from '@admin/pages/registrations/RefundRequestsPage';
 import ResultsPage from '@admin/pages/grading/ResultsPage';
+import ObjectionsPage from '@admin/pages/grading/ObjectionsPage';
 import ExpertsPage from '@admin/pages/grading/ExpertsPage';
 import EligibilityPage from '@admin/pages/grading/EligibilityPage';
 import EligibilityRefundsPage from '@admin/pages/grading/EligibilityRefundsPage';
@@ -126,6 +127,7 @@ function AdminShell() {
             onJumpToGrading={() => handleNavigate('grading')}
             onJumpToRefunds={() => handleNavigate('refund-requests')}
             onJumpToEligibility={() => handleNavigate('eligibility')}
+            onJumpToObjections={() => handleNavigate('objections')}
           />
         );
       case 'monitoring':
@@ -149,7 +151,9 @@ function AdminShell() {
       case 'registrations':
         return <RegistrationsPage />;
       case 'results':
-        return <ResultsPage />;
+        return <ResultsPage onJumpToObjections={() => handleNavigate('objections')} />;
+      case 'objections':
+        return <ObjectionsPage />;
       case 'experts':
         return <ExpertsPage />;
       case 'eligibility':

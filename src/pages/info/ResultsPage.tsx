@@ -1012,7 +1012,7 @@ export default function ResultsPage() {
                 {t('results.appeal.p3' as never)}
               </p>
               <div className="flex gap-3 flex-wrap">
-                <Link to="/qna" className="btn-primary">{t('results.appeal.cta' as never)}</Link>
+                <Link to="/mypage" className="btn-primary">{t('results.appeal.cta' as never)}</Link>
                 <Link to="/guide" className="btn-secondary">{t('results.appeal.criteria' as never)}</Link>
               </div>
             </section>

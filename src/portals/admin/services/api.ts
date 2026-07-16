@@ -649,6 +649,44 @@ export interface RefundRequestRow {
   adminNote?: string;
 }
 
+export type ObjectionKind = 'SCORE' | 'FORCED_TERMINATION';
+export type ObjectionStatus = 'RECEIVED' | 'UNDER_REVIEW' | 'COMPLETE';
+
+export interface ObjectionRow {
+  id: string;
+  userId: string;
+  sessionId: string;
+  kind: ObjectionKind;
+  status: ObjectionStatus;
+  reason: string;
+  resolution: string | null;
+  decidedBy: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  user?: { id: string; name: string; email: string | null; userId: string };
+  session: {
+    id: string;
+    certType: CertType;
+    level: CertLevel;
+    status: string;
+    passed: boolean | null;
+    totalScore: number | null;
+    failReason: string | null;
+    submittedAt: string | null;
+    registrationId: string | null;
+  };
+  history?: Array<{
+    id: string;
+    actorId: string;
+    action: string;
+    before: unknown;
+    after: unknown;
+    reason: string | null;
+    createdAt: string;
+  }>;
+}
+
 export interface ExpertRow {
   id: string;
   userId: string;
@@ -1179,6 +1217,28 @@ export const adminApi = {
       `/admin/registrations/refund-requests/${registrationId}/reject`,
       { note },
     ),
+
+  // ── Objections / appeals (§9-9) ────────────────────────────────────────
+  getObjectionCounts: () =>
+    api.get<{ received: number; underReview: number; complete: number; pending: number }>(
+      '/admin/objections/counts',
+    ),
+  getObjections: (params?: {
+    status?: 'OPEN' | 'ALL' | ObjectionStatus;
+    kind?: ObjectionKind;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) =>
+    api.get<{ items: ObjectionRow[]; pagination: { page: number; limit: number; total: number; totalPages: number } }>(
+      '/admin/objections',
+      { params },
+    ),
+  getObjection: (id: string) => api.get<ObjectionRow>(`/admin/objections/${id}`),
+  updateObjectionStatus: (
+    id: string,
+    body: { status: ObjectionStatus; resolution?: string },
+  ) => api.patch<ObjectionRow>(`/admin/objections/${id}/status`, body),
 
   // ── Admin monitor ──────────────────────────────────────────
   getMonitorLive: () => api.get<LiveSessionRow[]>('/admin/monitor/live'),

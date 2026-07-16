@@ -16,6 +16,7 @@ import {
   RotateCcw,
   LogOut,
   Bell,
+  MessageSquareWarning,
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { useI18n } from '@admin/i18n';
@@ -83,6 +84,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { id: 'grading', labelKey: 'nav.grading', icon: CheckSquare },
       { id: 'results', labelKey: 'nav.results', icon: Trophy },
+      { id: 'objections', labelKey: 'nav.objections', icon: MessageSquareWarning },
       { id: 'experts', labelKey: 'nav.experts', icon: UserCog },
       { id: 'eligibility', labelKey: 'nav.eligibility', icon: FileCheck },
       { id: 'eligibility-refunds', labelKey: 'nav.eligibilityRefunds', icon: RotateCcw },

@@ -102,6 +102,7 @@ export function DashboardScreen({
   onJumpToGrading,
   onJumpToRefunds,
   onJumpToEligibility,
+  onJumpToObjections,
 }: {
   onJumpToMonitoring: () => void;
   onJumpToStats: () => void;
@@ -109,6 +110,7 @@ export function DashboardScreen({
   onJumpToGrading: () => void;
   onJumpToRefunds: () => void;
   onJumpToEligibility: () => void;
+  onJumpToObjections: () => void;
 }) {
   const { t } = useI18n();
   const [stats, setStats] = useState<DashboardStats | null>(null);
@@ -135,6 +137,7 @@ export function DashboardScreen({
     let gradingPending = 0;
     let refundPending: number | null = null;
     let eligibilityPending: number | null = null;
+    let objectionPending: number | null = null;
 
     if (sessionCanAccessAdminPage('grading')) {
       optional.push(
@@ -162,6 +165,16 @@ export function DashboardScreen({
           .getEligibilityCounts()
           .then((r) => {
             eligibilityPending = r.data.pending ?? 0;
+          })
+          .catch(() => undefined),
+      );
+    }
+    if (sessionCanAccessAdminPage('objections')) {
+      optional.push(
+        adminApi
+          .getObjectionCounts()
+          .then((r) => {
+            objectionPending = r.data.pending ?? 0;
           })
           .catch(() => undefined),
       );
@@ -197,6 +210,14 @@ export function DashboardScreen({
             labelKey: 'dash.pending.eligibility',
             count: eligibilityPending,
             onJump: onJumpToEligibility,
+          });
+        }
+        if (objectionPending != null) {
+          next.push({
+            id: 'objections',
+            labelKey: 'dash.pending.objections',
+            count: objectionPending,
+            onJump: onJumpToObjections,
           });
         }
         next.push({

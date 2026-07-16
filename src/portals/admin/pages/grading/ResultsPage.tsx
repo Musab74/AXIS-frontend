@@ -45,9 +45,14 @@ function apiErrorMessage(e: unknown, fallback: string): string {
   return fallback;
 }
 
-export default function ResultsPage() {
+export default function ResultsPage({
+  onJumpToObjections,
+}: {
+  onJumpToObjections?: () => void;
+}) {
   const { t } = useI18n();
   const adminUser = getStoredAdminUser();
+  const [objectionPending, setObjectionPending] = useState(0);
   const [rows, setRows] = useState<GradingRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -90,6 +95,12 @@ export default function ResultsPage() {
           setRows([]);
         }
       });
+    adminApi
+      .getObjectionCounts()
+      .then((r) => {
+        if (!cancelled) setObjectionPending(r.data.pending ?? 0);
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -243,11 +254,10 @@ export default function ResultsPage() {
             </Button>
             <Button
               variant="secondary"
-              disabled
-              title={t('res.objectionsSoon')}
-              className="opacity-50 cursor-not-allowed"
+              onClick={() => onJumpToObjections?.()}
+              disabled={!onJumpToObjections}
             >
-              <MessageSquare className="w-3.5 h-3.5" /> {t('res.objections', { n: 0 })}
+              <MessageSquare className="w-3.5 h-3.5" /> {t('res.objections', { n: objectionPending })}
             </Button>
             <Button
               variant="blue"
@@ -301,8 +311,16 @@ export default function ResultsPage() {
         />
         <SimpleKpiCard
           label={t('res.kpi.objections')}
-          value="—"
-          meta={<span className="text-[var(--gray-500)]">{t('res.objectionsSoon')}</span>}
+          value={objectionPending}
+          meta={
+            <button
+              type="button"
+              className="text-[var(--blue)] hover:underline bg-transparent border-0 p-0 cursor-pointer text-[12px]"
+              onClick={() => onJumpToObjections?.()}
+            >
+              {t('obj.openInbox')}
+            </button>
+          }
         />
       </div>
 

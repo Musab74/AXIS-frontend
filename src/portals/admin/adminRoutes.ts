@@ -13,6 +13,7 @@ export const ADMIN_PAGE_IDS = [
   'monitoring',
   'grading',
   'results',
+  'objections',
   'experts',
   'eligibility',
   'eligibility-refunds',
@@ -45,6 +46,7 @@ export const ADMIN_PAGE_ROLES: Record<AdminPageId, readonly AdminRole[]> = {
   // Queue/score: EXAM_ADMIN is not on grading-queue class roles.
   grading: ['SUPER_ADMIN', 'GRADING_ADMIN', 'EXPERT'],
   results: ['SUPER_ADMIN', 'GRADING_ADMIN', 'EXPERT'],
+  objections: ['SUPER_ADMIN', 'EXAM_ADMIN', 'GRADING_ADMIN'],
   experts: ['SUPER_ADMIN', 'EXAM_ADMIN'],
   eligibility: ['SUPER_ADMIN', 'EXAM_ADMIN', 'GRADING_ADMIN', 'EXPERT'],
   'eligibility-refunds': ['SUPER_ADMIN', 'EXAM_ADMIN'],

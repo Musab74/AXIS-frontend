@@ -228,10 +228,8 @@ export const userApi = {
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.post('/auth/change-password', data),
   getDashboard: () => api.get('/users/me/dashboard'),
-  downloadCertificatePdf: (certNumber: string) =>
-    api.get<Blob>(`/certificates/mine/${encodeURIComponent(certNumber)}/download`, {
-      responseType: 'blob',
-    }),
+  // Certificate PDF is rendered client-side — open /mypage/certificate/:certNumber
+  // (CertificatePrintPage) instead of a backend download endpoint.
   downloadConfirmationPdf: (resultId: string) =>
     api.get<Blob>(`/results/mine/${encodeURIComponent(resultId)}/confirmation.pdf`, {
       responseType: 'blob',
@@ -289,6 +287,17 @@ export const registrationsApi = {
       `/registrations/${registrationId}/eligibility-refund`,
       note ? { note } : {},
     ),
+  refundRequest: (
+    registrationId: string,
+    body: { bankCode: string; accountNumber: string; holderName: string; note?: string },
+  ) =>
+    api.post<{
+      ok: true;
+      status: 'REQUESTED';
+      requestedAt: string;
+      expectedAmount: number;
+      refundTier: string;
+    }>(`/registrations/${registrationId}/refund-request`, body),
 };
 
 // Results API
@@ -438,11 +447,8 @@ export type PaymentRequestResponse = {
 };
 
 export const paymentApi = {
-  request: (registrationId: string, payMethod?: 'CARD' | 'VBANK') =>
-    api.post<PaymentRequestResponse>('/payment/request', {
-      registrationId,
-      ...(payMethod ? { payMethod } : {}),
-    }),
+  request: (registrationId: string) =>
+    api.post<PaymentRequestResponse>('/payment/request', { registrationId }),
   confirm: (body: { paymentId: string; merchantId: string }) =>
     api.post<
       | {
@@ -845,6 +851,42 @@ export const inquiryApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     });
   },
+};
+
+export type ObjectionKind = 'SCORE' | 'FORCED_TERMINATION';
+export type ObjectionStatus = 'RECEIVED' | 'UNDER_REVIEW' | 'COMPLETE';
+
+export interface ObjectionDto {
+  id: string;
+  sessionId: string;
+  kind: ObjectionKind;
+  status: ObjectionStatus;
+  reason: string;
+  resolution: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+  session?: {
+    id: string;
+    certType: string;
+    level: string;
+    status: string;
+    passed: boolean | null;
+    totalScore: number | null;
+    failReason: string | null;
+  };
+  history?: Array<{
+    id: string;
+    action: string;
+    after: unknown;
+    createdAt: string;
+  }>;
+}
+
+export const objectionApi = {
+  create: (data: { sessionId: string; kind: ObjectionKind; reason: string }) =>
+    api.post<ObjectionDto>('/objections', data),
+  mine: () => api.get<ObjectionDto[]>('/objections/my'),
+  get: (id: string) => api.get<ObjectionDto>(`/objections/my/${id}`),
 };
 
 // ── Notices (public, no auth) ─────────────────────────────────────────
