@@ -125,8 +125,8 @@ const dict: Dict = {
   // grading kpis
   "grade.kpi.aiQueue": { ko: "AI 채점 대기", en: "AI Queue" },
   "grade.kpi.reviewNeeded": { ko: "검수 필요", en: "Review Needed" },
-  "grade.kpi.expertAssigned": { ko: "전문가 배정", en: "Expert Assigned" },
-  "grade.kpi.finalToday": { ko: "금일 확정", en: "Confirmed Today" },
+  "grade.kpi.expertAssigned": { ko: "배정 대기", en: "Awaiting Assignment" },
+  "grade.kpi.finalToday": { ko: "확정 완료", en: "Finalized" },
 
   // common
   "common.all": { ko: "전체", en: "All" },
@@ -1044,6 +1044,15 @@ const dict: Dict = {
   "content.toast.deleted": { ko: "삭제되었습니다.", en: "Deleted successfully." },
   "content.toast.error": { ko: "오류가 발생했습니다.", en: "An error occurred." },
   "content.confirm.delete": { ko: "정말 삭제하시겠습니까?", en: "Are you sure you want to delete this?" },
+  "content.confirm.deleteTitle": { ko: "공지 삭제", en: "Delete notice" },
+  "content.confirm.deleteBody": {
+    ko: "이 공지를 삭제하시겠습니까? 삭제 후에는 복구할 수 없습니다.",
+    en: "Delete this notice? This cannot be undone.",
+  },
+  "content.confirm.deleteHint": {
+    ko: "공개 중인 공지는 홈페이지·고객센터에서도 바로 내려갑니다.",
+    en: "If published, it will also disappear from the homepage and support pages immediately.",
+  },
   "content.stub.notice1.title": {
     ko: "2026년 6월 AXIS 시험 시행 공지",
     en: "Announcement: June 2026 AXIS Exam Schedule",

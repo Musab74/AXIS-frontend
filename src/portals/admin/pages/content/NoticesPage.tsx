@@ -3,6 +3,7 @@ import { Eye, EyeOff, Pin, Plus, Loader2 } from 'lucide-react';
 import {
   Button,
   FilterBar,
+  Modal,
   PageHeader,
   Pagination,
   Search,
@@ -48,6 +49,8 @@ export default function NoticesPage() {
   const [noticePage, setNoticePage] = useState(1);
   const [editingNotice, setEditingNotice] = useState<NoticeForm | null>(null);
   const [saving, setSaving] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<ContentNoticeRow | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   const fetchNotices = useCallback(async () => {
     setNoticeLoading(true);
@@ -118,14 +121,18 @@ export default function NoticesPage() {
     }
   };
 
-  const handleDeleteNotice = async (id: string) => {
-    if (!confirm(t('content.confirm.delete'))) return;
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setDeleting(true);
     try {
-      await adminApi.deleteNotice(id);
+      await adminApi.deleteNotice(deleteTarget.id);
       pushToast(t('content.toast.deleted'), 'green');
+      setDeleteTarget(null);
       fetchNotices();
     } catch {
       pushToast(t('content.toast.error'), 'red');
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -210,7 +217,7 @@ export default function NoticesPage() {
                       >
                         {t('common.editBtn')}
                       </Button>
-                      <Button variant="danger" size="sm" onClick={() => handleDeleteNotice(n.id)}>
+                      <Button variant="danger" size="sm" onClick={() => setDeleteTarget(n)}>
                         {t('common.delete')}
                       </Button>
                     </Td>
@@ -320,6 +327,34 @@ export default function NoticesPage() {
           </>
         )}
       </ContentSidePanel>
+
+      <Modal
+        open={!!deleteTarget}
+        onClose={() => !deleting && setDeleteTarget(null)}
+        title={t('content.confirm.deleteTitle')}
+        width={440}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setDeleteTarget(null)} disabled={deleting}>
+              {t('common.cancel')}
+            </Button>
+            <Button variant="danger" onClick={handleConfirmDelete} disabled={deleting}>
+              {deleting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              {t('common.delete')}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-[var(--gray-700)] m-0 leading-relaxed">
+          {t('content.confirm.deleteBody')}
+        </p>
+        {deleteTarget && (
+          <p className="mt-3 mb-0 text-sm font-semibold text-[var(--primary)] break-words">
+            {deleteTarget.title}
+          </p>
+        )}
+        <p className="mt-3 mb-0 text-xs text-[var(--gray-500)]">{t('content.confirm.deleteHint')}</p>
+      </Modal>
     </div>
   );
 }
