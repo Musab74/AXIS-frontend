@@ -52,7 +52,7 @@ export default function ObjectionsPage() {
   const [kindFilter, setKindFilter] = useState<ObjectionKind | 'ALL'>('ALL');
   const [rows, setRows] = useState<ObjectionRow[] | null>(null);
   const [selected, setSelected] = useState<ObjectionRow | null>(null);
-  const [history, setHistory] = useState<ObjectionRow['history']>([]);
+  const [history, setHistory] = useState<NonNullable<ObjectionRow['history']>>([]);
   const [busy, setBusy] = useState(false);
   const [resolution, setResolution] = useState('');
   const [reloadKey, setReloadKey] = useState(0);
