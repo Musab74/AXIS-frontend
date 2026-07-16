@@ -16,6 +16,7 @@ import {
   certCodeOf,
   pushToast,
   StatusBadge,
+  Select,
 } from '@admin/components/shared/ui-kit';
 import {
   adminApi,
@@ -123,8 +124,7 @@ export default function ObjectionsPage() {
           <SectionHeader title={t('obj.list')} subtitle={rows ? `${rows.length}` : ''} />
           <div className="mb-4 flex flex-wrap items-center gap-3">
             <Tabs tabs={tabItems} active={tab} onChange={setTab} />
-            <select
-              className="text-sm border border-[var(--gray-border)] rounded-md px-2 py-1.5 bg-white"
+            <Select
               value={kindFilter}
               onChange={(e) => setKindFilter(e.target.value as ObjectionKind | 'ALL')}
               aria-label={t('obj.filter.kind')}
@@ -132,7 +132,7 @@ export default function ObjectionsPage() {
               <option value="ALL">{t('obj.filter.kindAll')}</option>
               <option value="SCORE">{t('obj.kind.SCORE')}</option>
               <option value="FORCED_TERMINATION">{t('obj.kind.FORCED_TERMINATION')}</option>
-            </select>
+            </Select>
           </div>
 
           {!rows ? (
@@ -230,7 +230,7 @@ export default function ObjectionsPage() {
               <div>
                 <div className="text-xs text-[var(--gray-500)] mb-1">{t('obj.resolution')}</div>
                 <textarea
-                  className="w-full min-h-[100px] text-sm border border-[var(--gray-border)] rounded-md p-2.5 disabled:bg-[var(--gray-50)]"
+                  className="w-full min-h-[100px] text-sm border border-[var(--gray-border)] rounded-md p-2.5 bg-white text-[var(--gray-700)] disabled:bg-[var(--gray-50)]"
                   value={resolution}
                   onChange={(e) => setResolution(e.target.value)}
                   disabled={selected.status === 'COMPLETE' || busy}

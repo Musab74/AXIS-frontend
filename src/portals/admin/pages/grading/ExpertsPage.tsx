@@ -71,21 +71,35 @@ export default function ExpertsPage() {
         : [...f.competencies, ct],
     }));
 
-  const canSubmit =
-    form.userId.trim().length >= 4 &&
-    form.password.length >= 8 &&
-    form.name.trim().length >= 1 &&
-    form.phone.replace(/\D/g, '').length >= 9 &&
-    form.competencies.length > 0 &&
-    !submitting;
+  const phoneDigits = form.phone.replace(/\D/g, '');
+  const missingHint = (): string | null => {
+    if (form.userId.trim().length < 4) return '아이디는 영문/숫자 4자 이상 입력하세요';
+    if (form.password.length < 8) return '비밀번호는 8자 이상 입력하세요';
+    if (form.name.trim().length < 1) return '이름을 입력하세요';
+    if (phoneDigits.length < 9) return '연락처를 올바르게 입력하세요';
+    if (form.competencies.length === 0) return '담당 분야를 1개 이상 선택하세요';
+    return null;
+  };
+
+  const canSubmit = missingHint() === null && !submitting;
 
   const submit = async () => {
-    if (!canSubmit) return;
+    const hint = missingHint();
+    if (hint) {
+      pushToast(hint, 'orange');
+      return;
+    }
+    if (submitting) return;
     setSubmitting(true);
     try {
       const payload: CreateExpertInput = {
-        ...form,
+        userId: form.userId.trim(),
+        password: form.password,
+        name: form.name.trim(),
+        // Backend DTO allows digits/hyphens only — normalize before POST
+        phone: phoneDigits,
         email: form.email?.trim() ? form.email.trim() : undefined,
+        competencies: form.competencies,
       };
       const res = await adminApi.createExpert(payload);
       pushToast(`채점위원 "${res.data.name}" 계정이 생성되었습니다`, 'green');
@@ -209,7 +223,7 @@ export default function ExpertsPage() {
         </div>
 
         <div className="mt-5 flex justify-end">
-          <Button onClick={submit} disabled={!canSubmit}>
+          <Button type="button" onClick={() => void submit()} disabled={!canSubmit} title={missingHint() ?? undefined}>
             {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserPlus className="h-4 w-4" />}
             계정 생성
           </Button>

@@ -298,7 +298,7 @@ export function Button({
   const sizes = size === "sm" ? "px-2 py-1 text-[13px]" : "px-3 py-[7px] text-[14px]";
   return (
     <button
-      className={`axis-focus inline-flex items-center gap-1.5 border rounded-lg font-medium transition-all ${styles} ${sizes} ${className}`}
+      className={`axis-focus inline-flex items-center gap-1.5 border rounded-lg font-medium transition-all disabled:opacity-45 disabled:cursor-not-allowed ${styles} ${sizes} ${className}`}
       {...rest}
     >
       {children}

@@ -151,7 +151,8 @@ a { color: inherit; text-decoration: none; }
 
 .axis-card {
   border: 1px solid var(--gray-border);
-  color: var(--cbt-text);
+  /* Cards are white surfaces — use body text, not CBT (dark-theme) text */
+  color: var(--gray-text);
 }
 
 /* ─── Focus ring (a11y) ─── */
