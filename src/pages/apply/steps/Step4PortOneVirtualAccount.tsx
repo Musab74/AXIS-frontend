@@ -98,9 +98,9 @@ export default function Step4PortOneVirtualAccount() {
   const [error, setError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
   const [paymentDemo, setPaymentDemo] = useState(false);
-  const [payMethodChoice, setPayMethodChoice] = useState<'card' | 'va' | 'demo'>('card');
+  const [payMethodChoice, setPayMethodChoice] = useState<'va' | 'demo'>('va');
 
-  const handleSelectPayMethod = (id: 'card' | 'va' | 'demo') => {
+  const handleSelectPayMethod = (id: 'va' | 'demo') => {
     setPayMethodChoice(id);
     const demoOn = id === 'demo';
     setPaymentDemo(demoOn);
@@ -131,7 +131,7 @@ export default function Step4PortOneVirtualAccount() {
   // Backend may disable test payment (e.g. prod) — drop a stale demo selection.
   useEffect(() => {
     if (reqData?.testPaymentEnabled === false && payMethodChoice === 'demo') {
-      setPayMethodChoice('card');
+      setPayMethodChoice('va');
       setPaymentDemo(false);
       writeApplyPaymentDemo(false);
     }
@@ -185,7 +185,7 @@ export default function Step4PortOneVirtualAccount() {
       try {
         const prefer =
           payMethodChoice === 'card' ? 'CARD' : payMethodChoice === 'va' ? 'VBANK' : undefined;
-        const res = await paymentApi.request(regId, prefer);
+        const res = await paymentApi.request(regId);
         if (cancelled) return;
         setReqData(res.data);
         if (prefer === 'VBANK' && res.data.alreadyIssued && res.data.vbankNum) {
@@ -212,7 +212,7 @@ export default function Step4PortOneVirtualAccount() {
     return () => {
       cancelled = true;
     };
-  }, [regId, navigate, selectedSchedule, t, payMethodChoice]);
+  }, [regId, navigate, selectedSchedule, t]);
 
   const handleIssue = async () => {
     if (!regId) return;
