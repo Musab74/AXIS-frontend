@@ -243,6 +243,11 @@ export interface ExamineeListResult {
   total: number;
   page: number;
   limit: number;
+  counts?: {
+    pending: number;
+    paid: number;
+    refunded: number;
+  };
 }
 
 export interface ExamineeRegistrationDetail {
@@ -416,6 +421,7 @@ export interface GrantAttemptResult {
 export interface ExamineeFilters {
   q?: string;
   status?: ExamineeStatus;
+  paymentStatus?: 'PENDING' | 'CONFIRMED' | 'REFUNDED';
   certType?: CertType;
   level?: CertLevel;
   page?: number;
@@ -1154,6 +1160,12 @@ export const adminApi = {
   // ── Admin examinees (응시자 관리) ───────────────────────
   getExaminees: (filters: ExamineeFilters = {}) =>
     api.get<ExamineeListResult>('/admin/examinees', { params: filters }),
+  exportExaminees: (filters: ExamineeFilters = {}) =>
+    api.get<Blob>('/admin/examinees/export', {
+      params: filters,
+      responseType: 'blob',
+      timeout: 120_000,
+    }),
   getExamineeDetail: (userId: string) =>
     api.get<ExamineeDetail>(`/admin/examinees/${userId}`),
   adminRefundRegistration: (
