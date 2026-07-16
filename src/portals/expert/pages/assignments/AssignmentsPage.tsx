@@ -65,14 +65,16 @@ function certLabel(c: CertType) {
 
 function tabCount(c: GradingCounts | null, id: GradingQueueTab): number {
   if (!c) return 0;
-  return {
+  const map: Record<GradingQueueTab, number> = {
     all: c.all,
     auto_done: c.autoDone,
     ai_graded: c.aiDone,
     reviewing: c.reviewing,
     final: c.final,
     overdue: c.overdue,
-  }[id];
+    terminated: c.terminated,
+  };
+  return map[id];
 }
 
 interface Props {
