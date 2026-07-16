@@ -19,7 +19,7 @@ import {
 } from 'lucide-react';
 import type { ComponentType } from 'react';
 import { useI18n } from '@admin/i18n';
-import { hasAnyAdminRole } from '@admin/utils/auth';
+import { sessionCanAccessAdminPage } from '@admin/adminRoutes';
 
 type NavItem = {
   id: string;
@@ -111,6 +111,17 @@ const NAV_GROUPS: NavGroup[] = [
   },
 ];
 
+function visibleItemsForGroup(group: NavGroup): NavItem[] {
+  return group.items.filter((item) => sessionCanAccessAdminPage(item.id));
+}
+
+function visibleNavGroups(): NavGroup[] {
+  return NAV_GROUPS.map((group) => ({
+    ...group,
+    items: visibleItemsForGroup(group),
+  })).filter((group) => group.items.length > 0);
+}
+
 interface SidebarProps {
   activeId: string;
   onNavigate: (id: string) => void;
@@ -129,19 +140,14 @@ export function Sidebar({
   onLogout,
   examInProgress,
   isPanelOpen,
-  adminName,
-  adminRole = 'super_admin',
 }: SidebarProps) {
   const { t } = useI18n();
-  const canSeeEligibilityRefunds = hasAnyAdminRole('SUPER_ADMIN', 'EXAM_ADMIN');
+  const groups = visibleNavGroups();
 
   const activeGroup =
-    NAV_GROUPS.find((group) => group.items.some((item) => item.id === activeId)) ?? NAV_GROUPS[0];
+    groups.find((group) => group.items.some((item) => item.id === activeId)) ?? groups[0];
 
-  const visibleItems = activeGroup.items.filter((item) => {
-    if (item.id === 'eligibility-refunds') return canSeeEligibilityRefunds;
-    return true;
-  });
+  const visibleItems = activeGroup?.items ?? [];
 
   return (
     <aside
@@ -152,9 +158,9 @@ export function Sidebar({
     >
       <div className="w-[80px] shrink-0 bg-[var(--primary)] text-white flex flex-col items-center py-4 rounded-tr-3xl">
         <nav className="flex flex-col items-center gap-2 w-full">
-          {NAV_GROUPS.map((group) => {
+          {groups.map((group) => {
             const RailIcon = group.railIcon;
-            const isActive = group.id === activeGroup.id;
+            const isActive = group.id === activeGroup?.id;
 
             return (
               <button
@@ -196,7 +202,6 @@ export function Sidebar({
           isPanelOpen ? 'w-[200px] opacity-100' : 'w-0 opacity-0 border-l-0',
         ].join(' ')}
       >
-
         <nav className="flex-1 overflow-y-auto pl-3 pr-2 py-3 border-r border-[var(--gray-border)] ">
           <ul className="space-y-1">
             {visibleItems.map((item) => {

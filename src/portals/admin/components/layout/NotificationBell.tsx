@@ -5,7 +5,7 @@ import { useI18n } from '@admin/i18n';
 import { useAdminNotifications } from '@admin/hooks/useAdminNotifications';
 import { AdminNotificationRow } from '@admin/services/api';
 import { IconBtn } from '@admin/components/shared/ui-kit';
-import { adminPathForPage } from '@admin/adminRoutes';
+import { adminPathForPage, firstAccessibleAdminPage, sessionCanAccessAdminPage } from '@admin/adminRoutes';
 
 function formatRelative(ts: number, lang: 'ko' | 'en', t: (key: string, vars?: Record<string, string | number>) => string): string {
   const diff = Math.max(0, Date.now() - ts);
@@ -55,22 +55,23 @@ export function NotificationBell({ onNavigate: _onNavigate }: NotificationBellPr
       typeof item.meta?.inquiryId === 'string' ? item.meta.inquiryId : null;
     const href = item.href?.replace(/^\//, '') ?? 'dashboard';
     const pageId = href === 'monitoring' ? 'monitoring' : href === 'qna' ? 'qna' : href;
+    const target = sessionCanAccessAdminPage(pageId) ? pageId : firstAccessibleAdminPage();
 
-    if (pageId === 'qna' && inquiryId) {
+    if (target === 'qna' && inquiryId && sessionCanAccessAdminPage('qna')) {
       navigate(`${adminPathForPage('qna')}?inquiryId=${encodeURIComponent(inquiryId)}`);
       return;
     }
 
     const sessionId =
       typeof item.meta?.sessionId === 'string' ? item.meta.sessionId : null;
-    if (pageId === 'monitoring' && sessionId) {
+    if (target === 'monitoring' && sessionId && sessionCanAccessAdminPage('monitoring')) {
       navigate(
         `${adminPathForPage('monitoring')}?sessionId=${encodeURIComponent(sessionId)}`,
       );
       return;
     }
 
-    navigate(adminPathForPage(pageId));
+    navigate(adminPathForPage(target));
   };
 
   return (
@@ -106,17 +107,19 @@ export function NotificationBell({ onNavigate: _onNavigate }: NotificationBellPr
                   <CheckCheck className="h-4 w-4" />
                 </button>
               )}
-              <button
-                type="button"
-                onClick={() => {
-                  setOpen(false);
-                  navigate(adminPathForPage('notification-settings'));
-                }}
-                className="axis-focus rounded-md p-1.5 text-[var(--gray-500)] hover:bg-[var(--gray-50)]"
-                title={t('notif.settings')}
-              >
-                <Settings className="h-4 w-4" />
-              </button>
+              {sessionCanAccessAdminPage('notification-settings') && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpen(false);
+                    navigate(adminPathForPage('notification-settings'));
+                  }}
+                  className="axis-focus rounded-md p-1.5 text-[var(--gray-500)] hover:bg-[var(--gray-50)]"
+                  title={t('notif.settings')}
+                >
+                  <Settings className="h-4 w-4" />
+                </button>
+              )}
             </div>
           </div>
 

@@ -9,6 +9,7 @@ import {
   isAdminSessionValid,
   WRONG_CREDENTIALS_MSG,
 } from '@admin/utils/auth';
+import { adminPathForPage, firstAccessibleAdminPage } from '@admin/adminRoutes';
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -20,7 +21,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAdminSessionValid()) {
-      navigate('/', { replace: true });
+      navigate(adminPathForPage(firstAccessibleAdminPage()), { replace: true });
     }
   }, [navigate]);
 
@@ -51,7 +52,7 @@ export default function LoginPage() {
       localStorage.setItem('adminToken', accessToken);
       localStorage.setItem('adminRefreshToken', refreshToken);
       localStorage.setItem('adminUser', JSON.stringify(user));
-      navigate('/');
+      navigate(adminPathForPage(firstAccessibleAdminPage()));
     } catch (err: unknown) {
       clearAdminSession();
       const backendMsg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message;

@@ -30,7 +30,12 @@ import { disconnectAdminSocket, getAdminSocket } from '@admin/services/adminSock
 import { clearAdminSession, getStoredAdminUser, isAdminSessionValid } from '@admin/utils/auth';
 import { SessionSupersededModalHost } from '@admin/components/SessionSupersededModalHost';
 import { ForcePasswordChangeModal } from '@admin/components/ForcePasswordChangeModal';
-import { adminPageIdFromPath, adminPathForPage } from '@admin/adminRoutes';
+import {
+  adminPageIdFromPath,
+  adminPathForPage,
+  firstAccessibleAdminPage,
+  sessionCanAccessAdminPage,
+} from '@admin/adminRoutes';
 
 function RequireAuth({ children }: { children: React.ReactElement }) {
   if (isAdminSessionValid()) return children;
@@ -45,6 +50,13 @@ function AdminShell() {
   const activeId = adminPageIdFromPath(location.pathname);
   const [live, setLive] = useState<LiveSummary | null>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Deep-link / bookmark guard: send unauthorized roles to their first allowed page.
+  useEffect(() => {
+    if (!sessionCanAccessAdminPage(activeId)) {
+      navigate(adminPathForPage(firstAccessibleAdminPage()), { replace: true });
+    }
+  }, [activeId, navigate]);
 
   useEffect(() => {
     let cancelled = false;
@@ -76,6 +88,7 @@ function AdminShell() {
   };
 
   const handleNavigate = (id: string) => {
+    if (!sessionCanAccessAdminPage(id)) return;
     navigate(adminPathForPage(id));
     setIsSidebarOpen(true);
   };
@@ -92,6 +105,15 @@ function AdminShell() {
 
     handleNavigate(id);
   };
+
+  // While redirecting away from a forbidden route, avoid flashing page content.
+  if (!sessionCanAccessAdminPage(activeId)) {
+    return (
+      <div className="h-screen w-full flex items-center justify-center bg-[var(--gray-light)] text-sm text-[var(--gray-500)]">
+        {t('ph.body')}
+      </div>
+    );
+  }
 
   const renderContent = () => {
     switch (activeId) {

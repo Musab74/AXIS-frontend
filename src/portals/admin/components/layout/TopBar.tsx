@@ -2,6 +2,7 @@ import { Globe, Menu, User } from 'lucide-react';
 import { useState } from 'react';
 import { useI18n } from '@admin/i18n';
 import { NotificationBell } from '@admin/components/layout/NotificationBell';
+import { sessionCanAccessAdminPage } from '@admin/adminRoutes';
 
 interface ExamInfo {
   name: string;
@@ -58,8 +59,8 @@ export function TopBar({
         </div>
       </div>
 
-      {/* Live banner */}
-      {examInProgress && activeId !== 'monitoring' && (
+      {/* Live banner — only if this role can open monitoring */}
+      {examInProgress && activeId !== 'monitoring' && sessionCanAccessAdminPage('monitoring') && (
         <button
           onClick={onJumpToMonitoring}
           className="axis-focus flex min-w-0 items-center gap-2.5 rounded-full border border-[#FECACA] bg-gradient-to-r from-[#FEF2F2] to-white px-3 py-[6px] text-[12px] font-medium text-[var(--gray-700)] transition-shadow hover:shadow-[var(--shadow-sm)]"
