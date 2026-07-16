@@ -155,19 +155,22 @@ async function runCertificateVerify(certNoRaw: string, holderRaw: string): Promi
         toast: null,
       };
     }
-    return {
-      result: {
-        status: 'expired',
-        certNo: data.certNo,
-        holder: data.holder,
-        track: data.track,
-        level: data.level,
-        issuedAt: data.issuedAt,
-        expiredAt: data.expiredAt ?? data.validUntil,
-      },
-      modalOpen: true,
-      toast: null,
-    };
+    if (data.status === 'expired') {
+      return {
+        result: {
+          status: 'expired',
+          certNo: data.certNo,
+          holder: data.holder,
+          track: data.track,
+          level: data.level,
+          issuedAt: data.issuedAt,
+          expiredAt: data.expiredAt ?? data.validUntil,
+        },
+        modalOpen: true,
+        toast: null,
+      };
+    }
+    return { result: { status: 'invalid' }, modalOpen: true, toast: null };
   } catch (err: unknown) {
     let toast: string | null = '검증 요청에 실패했습니다. 잠시 후 다시 시도해주세요.';
     if (isAxiosError(err) && err.response?.status === 400) {
