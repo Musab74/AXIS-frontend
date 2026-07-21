@@ -125,6 +125,11 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // Inquiry attachments & other Nest static files (defense in depth for local/dev).
+      '/uploads': {
+        target: 'http://localhost:3333',
+        changeOrigin: true,
+      },
     },
   },
 })

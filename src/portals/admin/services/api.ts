@@ -1,5 +1,6 @@
 import axios, { AxiosError } from 'axios';
 import { showAdminSessionSupersededModal } from '@admin/lib/sessionSupersededModal';
+import { resolveUploadUrl } from '@/lib/socketOrigin';
 
 const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/$/, '') ?? '/api';
 
@@ -1456,9 +1457,7 @@ export function buildAttachmentMarker(a: InquiryAttachment): string {
 }
 
 export function resolveAttachmentUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) return url;
-  if (apiBase && apiBase !== '/api') return `${apiBase}${url.startsWith('/') ? '' : '/'}${url}`;
-  return url;
+  return resolveUploadUrl(url);
 }
 
 export interface ParsedMessagePart {

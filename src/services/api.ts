@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosRequestConfig, type InternalAxiosRequestConfig } from 'axios';
 import { showSessionSupersededModal } from '@/lib/sessionSupersededModal';
+import { resolveUploadUrl } from '@/lib/socketOrigin';
 
 /** Absolute API origin (e.g. `https://api.axis...`). Empty → use `/api` (Vite dev proxy). */
 const apiBaseRaw = typeof import.meta.env.VITE_API_BASE_URL === 'string' ? import.meta.env.VITE_API_BASE_URL.trim() : '';
@@ -228,8 +229,8 @@ export const userApi = {
   changePassword: (data: { currentPassword: string; newPassword: string }) =>
     api.post('/auth/change-password', data),
   getDashboard: () => api.get('/users/me/dashboard'),
-  // Certificate PDF is rendered client-side — open /mypage/certificate/:certNumber
-  // (CertificatePrintPage) instead of a backend download endpoint.
+  // Certificate PDF is rendered client-side via downloadCertificatePdf()
+  // (My Page → Certificates download button) — no backend PDF endpoint.
   downloadConfirmationPdf: (resultId: string) =>
     api.get<Blob>(`/results/mine/${encodeURIComponent(resultId)}/confirmation.pdf`, {
       responseType: 'blob',
@@ -978,16 +979,9 @@ export function buildAttachmentMarker(a: InquiryAttachment): string {
   )}|${encodeURIComponent(a.mimeType)}|${a.size}]]`;
 }
 
-/** Resolve a stored (relative) attachment URL to an absolute one. */
+/** Resolve a stored (relative) attachment URL to an absolute Nest `/uploads` URL. */
 export function resolveAttachmentUrl(url: string): string {
-  if (/^https?:\/\//i.test(url)) return url;
-  const base =
-    apiBaseRaw.length > 0 && /^https?:\/\//i.test(apiBaseRaw)
-      ? apiBaseRaw.replace(/\/$/, '')
-      : typeof window !== 'undefined'
-        ? `${window.location.protocol}//${window.location.hostname}:3333`
-        : '';
-  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+  return resolveUploadUrl(url);
 }
 
 export interface ParsedMessagePart {

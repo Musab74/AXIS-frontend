@@ -44,3 +44,20 @@ export function resolveApiBase(): string {
   const api = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.trim().replace(/\/$/, '');
   return api && api.length > 0 ? api : '/api';
 }
+
+/**
+ * Nest origin that serves `/uploads/*` (inquiry attachments, local evidence, etc.).
+ * Same host rules as Socket.IO — SPA origin does not proxy `/uploads` in production.
+ */
+export function resolveUploadOrigin(): string {
+  return resolveSocketOrigin();
+}
+
+/** Turn a stored relative upload path into an absolute URL on the Nest origin. */
+export function resolveUploadUrl(url: string): string {
+  if (!url) return url;
+  if (/^https?:\/\//i.test(url)) return url;
+  const base = resolveUploadOrigin();
+  if (!base) return url;
+  return `${base}${url.startsWith('/') ? '' : '/'}${url}`;
+}
