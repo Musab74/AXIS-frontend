@@ -31,8 +31,12 @@ export async function openProtectedPdf(
       setTimeout(() => URL.revokeObjectURL(url!), 60_000);
       return;
     }
-    const popup = window.open(url, '_blank', 'noopener');
-    if (!popup) {
+    // Do not pass `noopener` in windowFeatures — browsers return null even when
+    // the tab opened, which would falsely trigger the download fallback.
+    const popup = window.open(url, '_blank');
+    if (popup) {
+      popup.opener = null;
+    } else {
       const a = document.createElement('a');
       a.href = url;
       a.download = fileName;
