@@ -37,7 +37,7 @@ interface WizardActions {
   setCert: (cert: CertType | null) => void;
   setLevel: (level: CertLevel | null) => void;
   setSchedule: (s: ScheduleSummary) => void;
-  setRegistration: (regId: string, seatHeldUntil: string) => void;
+  setRegistration: (regId: string, seatHeldUntil: string | null) => void;
   /** Atomically save schedule + registration and advance one wizard step. */
   completeSessionStep: (schedule: ScheduleSummary, regId: string, seatHeldUntil: string) => void;
   setDocUrl: (url: string) => void;
@@ -73,7 +73,7 @@ export function WizardProvider({ children }: { children: ReactNode }) {
     setCert: (cert) => update({ selectedCert: cert, selectedLevel: null, selectedSchedule: null }),
     setLevel: (level) => update({ selectedLevel: level, selectedSchedule: null }),
     setSchedule: (s) => update({ selectedSchedule: s }),
-    setRegistration: (regId, seatHeldUntil) => update({ regId, seatHeldUntil }),
+    setRegistration: (regId, seatHeldUntil) => update({ regId, seatHeldUntil: seatHeldUntil ?? null }),
     completeSessionStep: (schedule, regId, seatHeldUntil) =>
       setState((s) => ({
         ...s,

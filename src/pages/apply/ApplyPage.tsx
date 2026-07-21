@@ -4,6 +4,7 @@ import { Check, ChevronRight } from 'lucide-react';
 import { useI18n } from '@/i18n';
 import { isLoggedIn } from '@/utils/authNavigate';
 import { WizardProvider, useWizard } from '@/pages/apply/lib/WizardContext';
+import type { CertType, CertLevel, ScheduleSummary, WizardStep } from '@/pages/apply/lib/WizardContext';
 import Step0PreCheck from '@/pages/apply/steps/Step0PreCheck';
 import Step1CertLevel from '@/pages/apply/steps/Step1CertLevel';
 import Step2Session from '@/pages/apply/steps/Step2Session';
@@ -109,6 +110,7 @@ function ApplyPageInner() {
     consents,
     setCert,
     setLevel,
+    setSchedule,
     setRegistration,
     goToStep,
   } = useWizard();
@@ -134,14 +136,19 @@ function ApplyPageInner() {
       level?: string;
       step?: number;
       regId?: string;
-      seatHeldUntil?: string;
+      seatHeldUntil?: string | null;
+      schedule?: ScheduleSummary;
     } | null;
-    if (state?.certType) setCert(state.certType as 'AXIS' | 'AXIS_C' | 'AXIS_H');
-    if (state?.level) setLevel(state.level as 'L3' | 'L2' | 'L1');
-    if (state?.regId && state?.seatHeldUntil) {
-      setRegistration(state.regId, state.seatHeldUntil);
-    }
-    if (state?.step) goToStep(state.step as 1 | 2 | 3 | 4 | 5);
+    if (state?.certType) setCert(state.certType as CertType);
+    if (state?.level) setLevel(state.level as CertLevel);
+    // Must run after setCert/setLevel — both reset selectedSchedule to null.
+    // Resuming payment from My Page has no wizard-selected schedule, so we
+    // rehydrate it from the registration to keep the Step 5 summary complete.
+    if (state?.schedule) setSchedule(state.schedule);
+    // Resume payment: the seat hold may already be null once a virtual account
+    // is issued, so wire up regId regardless — Step 5 only needs the regId.
+    if (state?.regId) setRegistration(state.regId, state.seatHeldUntil ?? null);
+    if (state?.step) goToStep(state.step as WizardStep);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

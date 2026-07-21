@@ -171,12 +171,18 @@ export default function Step4PortOneVirtualAccount() {
   }, [selectedSchedule, regId, setRegistration, navigate, t]);
 
   useEffect(() => {
-    if (!selectedSchedule) {
-      setLoadingParams(false);
-      setError(t('apply.step4.readyFailed' as never));
+    // Payment only needs a registration id. In the normal wizard the effect
+    // above creates one from selectedSchedule; when resuming payment from My
+    // Page it arrives via router state (often without a wizard schedule). Only
+    // surface "prepare failed" when there is genuinely no way to identify a
+    // registration (no regId and nothing to create one from).
+    if (!regId) {
+      if (!selectedSchedule) {
+        setLoadingParams(false);
+        setError(t('apply.step4.readyFailed' as never));
+      }
       return;
     }
-    if (!regId) return;
 
     let cancelled = false;
     setLoadingParams(true);

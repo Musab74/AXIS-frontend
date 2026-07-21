@@ -107,6 +107,25 @@ export default function MyPage() {
         seatHeldUntil: reg.seatHeldUntil,
         certType: reg.certType,
         level: reg.level,
+        // Rehydrate the wizard schedule so Step 5 doesn't hard-fail with
+        // "Failed to prepare payment" (it previously required a wizard-selected
+        // schedule that never exists when resuming payment from My Page).
+        // capacity/remainingSeats are unused at the payment step.
+        schedule: reg.schedule
+          ? {
+              id: reg.schedule.id,
+              certType: reg.certType,
+              level: reg.level,
+              roundNumber: reg.schedule.roundNumber,
+              year: reg.schedule.year,
+              examDate: reg.schedule.examDate,
+              examStartTime: reg.schedule.examStartTime,
+              venue: reg.schedule.venue,
+              capacity: 0,
+              remainingSeats: 0,
+              registrationEnd: reg.schedule.registrationEnd ?? '',
+            }
+          : undefined,
       },
     });
   };
