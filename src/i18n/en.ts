@@ -1895,9 +1895,9 @@ export const en = {
   'home.results.status.grading': 'Grading',
   'home.results.cta.view': 'View result',
   'home.results.cta.pending': 'Pending',
-  'home.results.demo.round': 'Round 1',
-  'home.results.demo.doneMeta': '{round} · Published: 2026.09.19',
-  'home.results.demo.gradingMeta': '{round} · Expected: 2026.09.26',
+  'home.results.empty': 'No rounds have been published yet.',
+  'home.results.meta.done': '{round} · Exam date {date}',
+  'home.results.meta.grading': '{round} · Grading in progress',
 
   // HomePage — Notices header (home.notices.title exists earlier — keep single copy)
   'home.notices.more': 'All notices',

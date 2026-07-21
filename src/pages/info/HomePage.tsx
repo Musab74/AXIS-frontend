@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { userApi, noticeApi } from '@/services/api';
-import type { NoticeItem } from '@/services/api';
+import { userApi, noticeApi, resultsApi } from '@/services/api';
+import type { NoticeItem, PublicRoundRow } from '@/services/api';
 import { useI18n } from '@/i18n';
 import { SiteHeader } from '@/components/marketing/SiteHeader';
 import { SiteFooter } from '@/components/marketing/SiteFooter';
@@ -42,6 +42,25 @@ const SURFACE_ALT = '#F7F7F8';   /* 교차 섹션 베이스 (살짝 진한 옅�
 const SECTION = 'py-8 sm:py-[64px] lg:py-[120px] px-5 sm:px-6 lg:px-10';
 const WRAP = 'mx-auto max-w-[1280px]';
 
+/** Number of most-recent (grading/announced) rounds shown in the home section. */
+const HOME_RESULTS_LIMIT = 3;
+
+/** YYYY.MM.DD in KST — matches ResultsPage formatting. */
+function formatExamDateKst(iso: string): string {
+  const s = new Intl.DateTimeFormat('sv-SE', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date(iso));
+  return s.replace(/-/g, '.');
+}
+
+/** e.g. "AXIS L3", "AXIS-C L3" */
+function formatRoundCertTitle(certType: 'AXIS' | 'AXIS_C' | 'AXIS_H', level: string): string {
+  return `${certType.replace('_', '-')} ${level}`;
+}
+
 /* Type scale — 페이지 전체 통일 (이 페이지가 다른 화면들의 기준이 됨)
    모바일은 OPIc 앱처럼 한 단계 작게, sm/lg 이상은 기존 스케일 유지 */
 const H_HERO = 'text-[26px] sm:text-[40px] lg:text-[54px] font-semibold leading-[1.25] break-keep lg:break-normal';
@@ -62,6 +81,8 @@ export default function HomePage() {
   const [homeNotices, setHomeNotices] = useState<NoticeItem[]>([]);
   const [openNoticeIds, setOpenNoticeIds] = useState<Set<string>>(new Set());
   const [openCert, setOpenCert] = useState<string | null>(null);
+  const [passRounds, setPassRounds] = useState<PublicRoundRow[]>([]);
+  const [passRoundsLoaded, setPassRoundsLoaded] = useState(false);
 
   const toggleHomeNotice = (id: string) => {
     setOpenNoticeIds((prev) => {
@@ -86,6 +107,27 @@ export default function HomePage() {
         }
       } catch {
         /* silently ignore on home page */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        // No status filter → API returns upcoming + past; keep the most recent
+        // graded/announced rounds (the actual "합격자 발표" content).
+        const res = await resultsApi.publicRounds({ pageSize: 50 });
+        if (cancelled) return;
+        const recent = res.data.items
+          .filter((r) => r.publicationState !== 'upcoming')
+          .slice(0, HOME_RESULTS_LIMIT);
+        setPassRounds(recent);
+      } catch {
+        /* silently ignore on home page */
+      } finally {
+        if (!cancelled) setPassRoundsLoaded(true);
       }
     })();
     return () => { cancelled = true; };
@@ -119,7 +161,7 @@ export default function HomePage() {
     // Re-run when async content (e.g. notices) mounts — initial pass only sees static sections.
     mainRef.current?.querySelectorAll('.reveal:not(.visible)').forEach(el => obs.observe(el));
     return () => obs.disconnect();
-  }, [homeNotices]);
+  }, [homeNotices, passRounds]);
 
   return (
     <div style={{ background: SURFACE, color: INK_700 }} className="min-h-screen">
@@ -414,16 +456,39 @@ export default function HomePage() {
             </div>
 
             <div className="mt-5 sm:mt-10 space-y-2.5 sm:space-y-3">
-              <ScheduleRow
-                status={t('home.results.status.done' as never)} statusColor="#059669"
-                title="AXIS L3" meta={t('home.results.demo.doneMeta' as never, { round: t('home.results.demo.round' as never) })} sub=""
-                cta={<Link to="/results" className="inline-flex items-center justify-center h-10 sm:h-12 min-w-0 sm:min-w-29.5 px-5 sm:px-6 rounded-[10px] text-[14px] sm:text-[16px] lg:text-[17px] font-semibold bg-blue-700" style={{ color: '#fff' }}>{t('home.results.cta.view' as never)}</Link>}
-              />
-              <ScheduleRow
-                status={t('home.results.status.grading' as never)} statusColor="#D97706"
-                title="AXIS-C L3" meta={t('home.results.demo.gradingMeta' as never, { round: t('home.results.demo.round' as never) })} sub=""
-                  cta={<span className="inline-flex items-center justify-center h-10 sm:h-12 min-w-0 sm:min-w-29.5 px-5 sm:px-6 rounded-[10px] text-[14px] sm:text-[16px] lg:text-[17px] font-semibold bg-gray-200 text-gray-500 tex" style={{ color: '#fff' }}>{t('home.results.cta.pending' as never)}</span>}
-              />
+              {passRounds.length === 0 ? (
+                passRoundsLoaded && (
+                  <p className={`${T_BODY} text-center py-10`} style={{ color: GRAY_300 }}>
+                    {t('home.results.empty' as never)}
+                  </p>
+                )
+              ) : (
+                passRounds.map((r) => {
+                  const announced = r.publicationState === 'announced';
+                  const round = t('results.round' as never, { n: r.roundNumber });
+                  return (
+                    <ScheduleRow
+                      key={r.scheduleId}
+                      status={announced ? t('home.results.status.done' as never) : t('home.results.status.grading' as never)}
+                      statusColor={announced ? '#059669' : '#D97706'}
+                      title={formatRoundCertTitle(r.certType, r.level)}
+                      meta={
+                        announced
+                          ? t('home.results.meta.done' as never, { round, date: formatExamDateKst(r.examDate) })
+                          : t('home.results.meta.grading' as never, { round })
+                      }
+                      sub=""
+                      cta={
+                        announced ? (
+                          <Link to="/results" className="inline-flex items-center justify-center h-10 sm:h-12 min-w-0 sm:min-w-29.5 px-5 sm:px-6 rounded-[10px] text-[14px] sm:text-[16px] lg:text-[17px] font-semibold bg-blue-700" style={{ color: '#fff' }}>{t('home.results.cta.view' as never)}</Link>
+                        ) : (
+                          <span className="inline-flex items-center justify-center h-10 sm:h-12 min-w-0 sm:min-w-29.5 px-5 sm:px-6 rounded-[10px] text-[14px] sm:text-[16px] lg:text-[17px] font-semibold bg-gray-200 text-gray-500" style={{ color: '#fff' }}>{t('home.results.cta.pending' as never)}</span>
+                        )
+                      }
+                    />
+                  );
+                })
+              )}
             </div>
 
           </div>

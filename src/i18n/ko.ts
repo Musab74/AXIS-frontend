@@ -1927,9 +1927,9 @@ export const ko = {
   'home.results.status.grading': '채점 중',
   'home.results.cta.view': '결과 확인',
   'home.results.cta.pending': '대기 중',
-  'home.results.demo.round': '제1회',
-  'home.results.demo.doneMeta': '{round} · 발표일: 2026.09.19',
-  'home.results.demo.gradingMeta': '{round} · 09.26 발표 예정',
+  'home.results.empty': '아직 발표된 회차가 없습니다.',
+  'home.results.meta.done': '{round} · 시험일 {date}',
+  'home.results.meta.grading': '{round} · 채점 중',
 
   // HomePage — Notices header (home.notices.title exists earlier — keep single copy)
   'home.notices.more': '전체 공지',
