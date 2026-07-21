@@ -210,7 +210,7 @@ export function Step4KcpPayment() {
             <span className={`${T_BODY} break-keep`} style={{ color: INK_900 }}>
               {t('apply.kcp.consentPay')}{' '}
               <a
-                href="/terms"
+                href="/legal/5-refund.html"
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={(e) => e.stopPropagation()}

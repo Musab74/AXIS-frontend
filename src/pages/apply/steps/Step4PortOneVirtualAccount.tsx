@@ -619,7 +619,7 @@ export default function Step4PortOneVirtualAccount() {
               <span className={`${T_BODY} break-keep`} style={{ color: INK_900 }}>
                 결제 진행 및 환불 규정에 동의합니다. (필수){' '}
                 <a
-                  href="/terms"
+                  href="/legal/5-refund.html"
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
