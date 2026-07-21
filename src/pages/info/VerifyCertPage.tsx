@@ -399,7 +399,7 @@ export default function VerifyCertPage() {
               <div className="flex flex-col sm:flex-row gap-4 sm:gap-5">
                 <label className="block flex-1 min-w-0">
                   <span className="mb-2 block text-[14px] sm:text-[15px] lg:text-[16px] font-semibold tracking-[-0.005em] text-black">
-                    접수번호
+                    자격증번호
                   </span>
                   <input
                     type="text"
@@ -409,7 +409,7 @@ export default function VerifyCertPage() {
                     spellCheck={false}
                     value={certNo}
                     onChange={e => setCertNo(e.target.value)}
-                    placeholder="예: AXIS-2026-L3-0142"
+                    placeholder="예: AXIS-L3-2026-001-00001"
                     className={`${FIELD_INPUT} font-en`}
                     style={{ borderColor: '#e5e7eb', background: '#ffffff' }}
                   />
